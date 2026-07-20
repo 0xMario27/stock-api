@@ -49,6 +49,24 @@ onMounted(() => {
           <span class="brand-badge">PY</span>
         </router-link>
 
+        <nav class="nav-links">
+          <router-link to="/" class="nav-link" active-class="nav-active">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            <span>自选</span>
+          </router-link>
+          <router-link to="/dashboard" class="nav-link" active-class="nav-active">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+            </svg>
+            <span>Dashboard</span>
+          </router-link>
+        </nav>
+
         <div class="header-controls">
           <div class="ui-segmented">
             <button
@@ -172,6 +190,34 @@ onMounted(() => {
   color: #FFFFFF;
   letter-spacing: 0.05em;
   line-height: 1.4;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: var(--space-4);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  min-height: 32px;
+}
+.nav-link:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+.nav-active {
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .header-controls {

@@ -242,12 +242,27 @@ onBeforeUnmount(() => {
                 <span class="ui-source-badge">{{ quote.source }}</span>
               </td>
               <td class="col-action ta-center">
-                <button class="btn-remove" @click.stop="store.removeCode(quote.code)" title="删除">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
+                <div class="action-group">
+                  <button
+                    class="btn-dash"
+                    :class="{ 'btn-dash-active': store.isInDash(quote.code, store.assetClass) }"
+                    @click.stop="store.isInDash(quote.code, store.assetClass)
+                      ? store.removeFromDash(quote.code, store.assetClass)
+                      : store.addToDash(quote.code, store.assetClass)"
+                    :title="store.isInDash(quote.code, store.assetClass) ? '从 Dashboard 移除' : '加入 Dashboard'"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                  </button>
+                  <button class="btn-remove" @click.stop="store.removeCode(quote.code)" title="删除">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -489,6 +504,35 @@ onBeforeUnmount(() => {
 .btn-remove:hover {
   color: var(--color-destructive);
   background: var(--color-down-bg);
+}
+
+.action-group {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.btn-dash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-fg-muted);
+  transition: all var(--transition-fast);
+}
+
+.btn-dash:hover {
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.btn-dash-active {
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 /* 空状态 */

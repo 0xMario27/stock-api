@@ -1,16 +1,28 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { getQuote, getQuotes } from "@/api";
-import type { AssetClass, Quote, SourceName } from "@/types";
+import { getQuote, getQuotes, getKlines } from "@/api";
+import type { AssetClass, Kline, Quote, SourceName } from "@/types";
 
 const STOCK_KEY = "stock-api-py:watchlist:stock";
 const CRYPTO_KEY = "stock-api-py:watchlist:crypto";
 const SOURCE_STOCK_KEY = "stock-api-py:source:stock";
 const SOURCE_CRYPTO_KEY = "stock-api-py:source:crypto";
 const ASSET_CLASS_KEY = "stock-api-py:asset_class";
+const DASH_KEY = "stock-api-py:dashitems";
 
 const DEFAULT_STOCK_WATCHLIST = ["SH510500", "SZ000651", "SH600519"];
 const DEFAULT_CRYPTO_WATCHLIST = ["bitcoin", "ethereum", "solana"];
+const DEFAULT_DASH: DashItem[] = [
+  { code: "SH510500", assetClass: "stock" },
+  { code: "SZ000651", assetClass: "stock" },
+  { code: "SH600519", assetClass: "stock" },
+  { code: "bitcoin", assetClass: "crypto" },
+];
+
+export interface DashItem {
+  code: string;
+  assetClass: AssetClass;
+}
 
 function loadList(key: string, fallback: string[]): string[] {
   try {
@@ -18,6 +30,15 @@ function loadList(key: string, fallback: string[]): string[] {
     return raw ? JSON.parse(raw) : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function loadDash(): DashItem[] {
+  try {
+    const raw = localStorage.getItem(DASH_KEY);
+    return raw ? JSON.parse(raw) : DEFAULT_DASH;
+  } catch {
+    return DEFAULT_DASH;
   }
 }
 
@@ -38,8 +59,15 @@ export const useStockStore = defineStore("stock", () => {
   const loading = ref(false);
   const error = ref("");
 
-  // 防竞态：每次 refresh 递增 generation，只有最新一次的结果才会写入 quotes
+  // Dashboard 状态
+  const dashItems = ref<DashItem[]>(loadDash());
+  const dashQuotes = ref<Record<string, Quote>>({});
+  const dashSparklines = ref<Record<string, Kline[]>>({});
+  const dashLoading = ref(false);
+  const dashError = ref("");
+
   let refreshGeneration = 0;
+  let dashGeneration = 0;
 
   const watchlist = computed(() =>
     assetClass.value === "crypto" ? cryptoWatchlist.value : stockWatchlist.value
@@ -90,7 +118,6 @@ export const useStockStore = defineStore("stock", () => {
   async function refresh(): Promise<void> {
     const generation = ++refreshGeneration;
     const currentClass = assetClass.value;
-
     if (watchlist.value.length === 0) {
       if (generation === refreshGeneration) quotes.value = [];
       return;
@@ -101,7 +128,6 @@ export const useStockStore = defineStore("stock", () => {
       const result = await getQuotes(watchlist.value, source.value, currentClass);
       if (generation !== refreshGeneration) return;
       quotes.value = result;
-      // 检测全部数据源失败（source=base = 全零默认值）
       const allFailed = result.length > 0 && result.every((q) => q.source === "base");
       if (allFailed) {
         const label = currentClass === "crypto" ? "加密货币" : "股票";
@@ -122,14 +148,100 @@ export const useStockStore = defineStore("stock", () => {
       const quote = await getQuote(code, source.value, currentClass);
       if (generation !== refreshGeneration) return;
       const index = quotes.value.findIndex((q) => q.code === code);
-      if (index >= 0) {
-        quotes.value[index] = quote;
-      } else {
-        quotes.value.push(quote);
-      }
+      if (index >= 0) quotes.value[index] = quote;
+      else quotes.value.push(quote);
     } catch (e) {
       if (generation !== refreshGeneration) return;
       error.value = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  // === Dashboard 操作 ===
+  function persistDash(): void {
+    localStorage.setItem(DASH_KEY, JSON.stringify(dashItems.value));
+  }
+
+  function addToDash(code: string, ac: AssetClass): void {
+    const normalized = ac === "crypto" ? code.trim().toLowerCase() : code.trim().toUpperCase();
+    const exists = dashItems.value.some(
+      (d) => d.code === normalized && d.assetClass === ac
+    );
+    if (!exists) {
+      dashItems.value.push({ code: normalized, assetClass: ac });
+      persistDash();
+    }
+  }
+
+  function removeFromDash(code: string, ac: AssetClass): void {
+    dashItems.value = dashItems.value.filter(
+      (d) => !(d.code === code && d.assetClass === ac)
+    );
+    const key = `${ac}:${code}`;
+    delete dashQuotes.value[key];
+    delete dashSparklines.value[key];
+    persistDash();
+  }
+
+  function isInDash(code: string, ac: AssetClass): boolean {
+    return dashItems.value.some((d) => d.code === code && d.assetClass === ac);
+  }
+
+  async function refreshDash(): Promise<void> {
+    const generation = ++dashGeneration;
+    if (dashItems.value.length === 0) {
+      dashQuotes.value = {};
+      dashSparklines.value = {};
+      return;
+    }
+    dashLoading.value = true;
+    dashError.value = "";
+
+    // 按资产类别分组
+    const stockCodes = dashItems.value.filter((d) => d.assetClass === "stock").map((d) => d.code);
+    const cryptoCodes = dashItems.value.filter((d) => d.assetClass === "crypto").map((d) => d.code);
+
+    const tasks: Promise<void>[] = [];
+
+    if (stockCodes.length > 0) {
+      tasks.push(fetchDashGroup(stockCodes, "stock", generation));
+    }
+    if (cryptoCodes.length > 0) {
+      tasks.push(fetchDashGroup(cryptoCodes, "crypto", generation));
+    }
+
+    // 为每个标的拉取迷你 K 线
+    for (const item of dashItems.value) {
+      tasks.push(fetchDashSparkline(item.code, item.assetClass, generation));
+    }
+
+    await Promise.allSettled(tasks);
+
+    if (generation === dashGeneration) {
+      dashLoading.value = false;
+    }
+  }
+
+  async function fetchDashGroup(codes: string[], ac: AssetClass, generation: number): Promise<void> {
+    try {
+      const result = await getQuotes(codes, "auto", ac);
+      if (generation !== dashGeneration) return;
+      for (const q of result) {
+        dashQuotes.value[`${ac}:${q.code}`] = q;
+      }
+    } catch (e) {
+      if (generation === dashGeneration) {
+        dashError.value = e instanceof Error ? e.message : String(e);
+      }
+    }
+  }
+
+  async function fetchDashSparkline(code: string, ac: AssetClass, generation: number): Promise<void> {
+    try {
+      const result = await getKlines(code, { period: "day", count: 30, source: "auto" }, ac);
+      if (generation !== dashGeneration) return;
+      dashSparklines.value[`${ac}:${code}`] = result;
+    } catch {
+      // 迷你图失败不影响主数据
     }
   }
 
@@ -146,5 +258,15 @@ export const useStockStore = defineStore("stock", () => {
     refreshOne,
     setAssetClass,
     setSource,
+    // Dashboard
+    dashItems,
+    dashQuotes,
+    dashSparklines,
+    dashLoading,
+    dashError,
+    addToDash,
+    removeFromDash,
+    isInDash,
+    refreshDash,
   };
 });
