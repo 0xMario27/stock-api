@@ -12,6 +12,9 @@ import type {
 const http = axios.create({
   baseURL: "/api",
   timeout: 30000,
+  paramsSerializer: {
+    indexes: null, // 序列化数组为 codes=a&codes=b 而非 codes[]=a，匹配 FastAPI Query(list[str])
+  },
 });
 
 export async function getQuote(
