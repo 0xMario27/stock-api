@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { onMounted } from "vue";
 import { useStockStore } from "@/stores/stock";
 
 const store = useStockStore();
@@ -7,11 +7,6 @@ const store = useStockStore();
 onMounted(() => {
   store.refresh();
 });
-
-watch(
-  () => store.assetClass,
-  () => store.refresh()
-);
 </script>
 
 <template>

@@ -38,6 +38,9 @@ export const useStockStore = defineStore("stock", () => {
   const loading = ref(false);
   const error = ref("");
 
+  // 防竞态：每次 refresh 递增 generation，只有最新一次的结果才会写入 quotes
+  let refreshGeneration = 0;
+
   const watchlist = computed(() =>
     assetClass.value === "crypto" ? cryptoWatchlist.value : stockWatchlist.value
   );
@@ -46,6 +49,7 @@ export const useStockStore = defineStore("stock", () => {
   );
 
   function setAssetClass(next: AssetClass): void {
+    if (assetClass.value === next) return;
     assetClass.value = next;
     localStorage.setItem(ASSET_CLASS_KEY, next);
     quotes.value = [];
@@ -84,24 +88,34 @@ export const useStockStore = defineStore("stock", () => {
   }
 
   async function refresh(): Promise<void> {
+    const generation = ++refreshGeneration;
+    const currentClass = assetClass.value;
+
     if (watchlist.value.length === 0) {
-      quotes.value = [];
+      if (generation === refreshGeneration) quotes.value = [];
       return;
     }
     loading.value = true;
     error.value = "";
     try {
-      quotes.value = await getQuotes(watchlist.value, source.value, assetClass.value);
+      const result = await getQuotes(watchlist.value, source.value, currentClass);
+      // 丢弃过期响应：切换 tab 后旧请求返回的不覆盖
+      if (generation !== refreshGeneration) return;
+      quotes.value = result;
     } catch (e) {
+      if (generation !== refreshGeneration) return;
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
-      loading.value = false;
+      if (generation === refreshGeneration) loading.value = false;
     }
   }
 
   async function refreshOne(code: string): Promise<void> {
+    const generation = refreshGeneration;
+    const currentClass = assetClass.value;
     try {
-      const quote = await getQuote(code, source.value, assetClass.value);
+      const quote = await getQuote(code, source.value, currentClass);
+      if (generation !== refreshGeneration) return;
       const index = quotes.value.findIndex((q) => q.code === code);
       if (index >= 0) {
         quotes.value[index] = quote;
@@ -109,6 +123,7 @@ export const useStockStore = defineStore("stock", () => {
         quotes.value.push(quote);
       }
     } catch (e) {
+      if (generation !== refreshGeneration) return;
       error.value = e instanceof Error ? e.message : String(e);
     }
   }
