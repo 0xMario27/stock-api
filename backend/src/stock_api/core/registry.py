@@ -89,6 +89,18 @@ class AutoProvider(DataProvider):
 
     async def get_quotes(self, codes: list[str]) -> list[Quote]:
         normalized = _normalize_codes(codes)
+        if not normalized:
+            return []
+        # 优先用 provider 的批量接口（1 次 API 请求），而非逐个 get_quote（N 次请求）
+        for provider in self.providers:
+            try:
+                quotes = await provider.get_quotes(normalized)
+                # 只要有非默认值结果就采用
+                if any(q.source != "base" and q.name != "---" for q in quotes):
+                    return quotes
+            except Exception:
+                continue
+        # 全部 provider 批量失败，回退到逐个 inspect（保留诊断能力）
         return await asyncio.gather(*[self.get_quote(code) for code in normalized])
 
     async def get_klines(self, code: str, options: KlineOptions | None = None) -> list[Kline]:

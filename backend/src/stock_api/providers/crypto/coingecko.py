@@ -7,17 +7,23 @@
 
 统一代码：CoinGecko coin ID（如 bitcoin / ethereum / binancecoin），与股票的 SH/SZ/HK/US 前缀格式天然区分。
 
-二期若要接入更多 crypto 数据源（如 Binance），只需新建 providers/crypto/binance.py，
-继承 DataProvider 并设置 asset_class = CRYPTO，注册到 registry 即可，auto 路由自动生效。
+限流策略：
+- CoinGecko 免费 API 限制约 5-15 次/分钟
+- 内置 TTL 缓存：行情 60s / K 线 300s，减少 API 调用
+- 429 限流时返回过期缓存（最多 10 分钟），而非全零默认值
+- 二期若要接入更多 crypto 数据源（如 Binance），只需新建 providers/crypto/binance.py，
+  继承 DataProvider 并设置 asset_class = CRYPTO，注册到 registry 即可，auto 路由自动生效。
 """
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
 from stock_api.core.base import DataProvider
+from stock_api.core.exceptions import StockRequestError
 from stock_api.core.models import (
     AssetClass,
     Inspection,
@@ -37,13 +43,53 @@ from stock_api.utils.http import fetch_json
 _BASE_URL = "https://api.coingecko.com/api/v3"
 _DEFAULT_HEADERS = {"Accept": "application/json"}
 
+# 缓存 TTL（秒）
+_QUOTE_FRESH_TTL = 60      # 新鲜缓存：60s 内直接用，不发请求
+_QUOTE_STALE_TTL = 600     # 过期缓存：429 时最多用 10 分钟前的
+_KLINE_FRESH_TTL = 300     # K 线新鲜缓存 5 分钟
+_KLINE_STALE_TTL = 1800    # K 线过期缓存 30 分钟
+
+
+class _TTLCache:
+    """简单的 TTL 缓存，区分 fresh 和 stale 两个阈值。"""
+
+    def __init__(self) -> None:
+        self._store: dict[str, tuple[float, Any]] = {}
+
+    def get_fresh(self, key: str, ttl: float) -> Any | None:
+        """返回新鲜缓存（age < ttl），否则 None。"""
+        entry = self._store.get(key)
+        if entry is None:
+            return None
+        ts, data = entry
+        if time.monotonic() - ts < ttl:
+            return data
+        return None
+
+    def get_stale(self, key: str, max_age: float) -> Any | None:
+        """返回过期但仍在 max_age 内的缓存，用于 429 fallback。"""
+        entry = self._store.get(key)
+        if entry is None:
+            return None
+        ts, data = entry
+        age = time.monotonic() - ts
+        if age < max_age:
+            return data
+        return None
+
+    def set(self, key: str, data: Any) -> None:
+        self._store[key] = (time.monotonic(), data)
+
 
 class CoinGeckoProvider(DataProvider):
-    """CoinGecko 加密货币数据源。"""
+    """CoinGecko 加密货币数据源，内置 TTL 缓存应对限流。"""
 
     name = "coingecko"
     asset_class = AssetClass.CRYPTO
     supported_markets = [Market.CRYPTO]
+
+    def __init__(self) -> None:
+        self._cache = _TTLCache()
 
     async def get_quote(self, code: str) -> Quote:
         quotes = await self.get_quotes([code])
@@ -55,35 +101,59 @@ class CoinGeckoProvider(DataProvider):
             return []
 
         ids = ",".join(normalized)
+        cache_key = f"markets:{ids}"
+
+        # 1. 先查新鲜缓存，命中则直接返回
+        cached_fresh = self._cache.get_fresh(cache_key, _QUOTE_FRESH_TTL)
+        if cached_fresh is not None:
+            return self._build_quotes(normalized, cached_fresh)
+
+        # 2. 请求 API
         url = (
             f"{_BASE_URL}/coins/markets"
             f"?vs_currency=usd&ids={quote(ids)}"
             f"&sparkline=false&price_change_percentage=24h"
         )
-        data = await fetch_json(url, headers=_DEFAULT_HEADERS)
-
-        if not isinstance(data, list):
+        try:
+            data = await fetch_json(url, headers=_DEFAULT_HEADERS)
+            if isinstance(data, list):
+                self._cache.set(cache_key, data)
+                return self._build_quotes(normalized, data)
             return [default_quote(c, self.name) for c in normalized]
-
-        by_id = {item["id"]: item for item in data if isinstance(item, dict) and "id" in item}
-        return [self._parse_quote(code, by_id.get(code)) for code in normalized]
+        except StockRequestError:
+            # 3. 429 限流：返回过期缓存（如果有）
+            stale = self._cache.get_stale(cache_key, _QUOTE_STALE_TTL)
+            if stale is not None:
+                return self._build_quotes(normalized, stale)
+            raise
 
     async def get_klines(self, code: str, options: KlineOptions | None = None) -> list[Kline]:
         opts = normalize_kline_options(options)
 
-        # CoinGecko OHLC 不支持复权概念
         if opts.adjust != KlineAdjust.NONE:
             return []
 
         days = self._period_to_days(opts.period, opts.count)
+        cache_key = f"ohlc:{code}:{days}"
+
+        # 1. 新鲜缓存
+        cached_fresh = self._cache.get_fresh(cache_key, _KLINE_FRESH_TTL)
+        if cached_fresh is not None:
+            return self._build_klines(cached_fresh, opts.period, opts.count)
+
         url = f"{_BASE_URL}/coins/{quote(code)}/ohlc?vs_currency=usd&days={days}"
-        data = await fetch_json(url, headers=_DEFAULT_HEADERS)
-
-        if not isinstance(data, list) or not data:
+        try:
+            data = await fetch_json(url, headers=_DEFAULT_HEADERS)
+            if isinstance(data, list) and data:
+                self._cache.set(cache_key, data)
+                return self._build_klines(data, opts.period, opts.count)
             return []
-
-        raw_rows = self._parse_ohlc(data)
-        return self._aggregate(raw_rows, opts.period, opts.count)
+        except StockRequestError:
+            # 2. 429 限流：返回过期缓存
+            stale = self._cache.get_stale(cache_key, _KLINE_STALE_TTL)
+            if stale is not None:
+                return self._build_klines(stale, opts.period, opts.count)
+            raise
 
     async def search_symbols(self, query: str) -> list[Symbol]:
         url = f"{_BASE_URL}/search?query={quote(query)}"
@@ -113,6 +183,20 @@ class CoinGeckoProvider(DataProvider):
     async def inspect(self, code: str) -> Inspection:
         return await create_inspection(self.name, code, self.get_quote)
 
+    def _build_quotes(self, codes: list[str], data: list[Any]) -> list[Quote]:
+        by_id = {
+            item["id"]: item
+            for item in data
+            if isinstance(item, dict) and "id" in item
+        }
+        return [self._parse_quote(code, by_id.get(code)) for code in codes]
+
+    def _build_klines(
+        self, data: list, period: KlinePeriod, count: int
+    ) -> list[Kline]:
+        raw_rows = self._parse_ohlc(data)
+        return self._aggregate(raw_rows, period, count)
+
     def _parse_quote(self, code: str, item: dict[str, Any] | None) -> Quote:
         if not item:
             return default_quote(code, self.name)
@@ -138,16 +222,6 @@ class CoinGeckoProvider(DataProvider):
         )
 
     def _period_to_days(self, period: KlinePeriod, count: int) -> str:
-        """根据 period 和 count 估算需要请求的天数范围。
-
-        CoinGecko OHLC 端点支持的 days 值：1, 7, 14, 30, 90, 180, 365, max
-        - days=1: 30 分钟粒度
-        - days=7~30: 4 小时粒度
-        - days=90+: 4 小时粒度
-        - days=365/max: 日粒度
-
-        为了拿到日 K，用 365 或 max；周 K / 月 K 同样取日粒度后聚合。
-        """
         if period == KlinePeriod.MONTH or count > 90:
             return "365"
         if count > 30:
@@ -155,7 +229,6 @@ class CoinGeckoProvider(DataProvider):
         return "30"
 
     def _parse_ohlc(self, data: list) -> list[dict[str, Any]]:
-        """解析 CoinGecko OHLC 原始数据 -> [{date, open, high, low, close}]"""
         rows: list[dict[str, Any]] = []
         for item in data:
             if not isinstance(item, list) or len(item) < 5:
@@ -179,12 +252,10 @@ class CoinGeckoProvider(DataProvider):
         period: KlinePeriod,
         count: int,
     ) -> list[Kline]:
-        """将日粒度 OHLC 聚合为目标周期。"""
         if not rows:
             return []
 
         if period == KlinePeriod.DAY:
-            # CoinGecko 30 天以内是 4 小时粒度，需要聚合成日 K
             daily = self._aggregate_to_daily(rows) if len(rows) > count * 4 else rows
             return [
                 create_kline(
@@ -231,7 +302,6 @@ class CoinGeckoProvider(DataProvider):
         return []
 
     def _aggregate_to_daily(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """将 4 小时粒度的 OHLC 聚合为日 K。"""
         by_date: dict[str, list[dict[str, Any]]] = {}
         for r in rows:
             by_date.setdefault(r["date"], []).append(r)
@@ -253,7 +323,6 @@ class CoinGeckoProvider(DataProvider):
     def _aggregate_by_period(
         self, daily: list[dict[str, Any]], period: str
     ) -> list[dict[str, Any]]:
-        """将日 K 聚合为周 K 或月 K。"""
         groups: dict[str, list[dict[str, Any]]] = {}
         for r in daily:
             dt = datetime.strptime(r["date"], "%Y-%m-%d")

@@ -69,10 +69,10 @@ async def fetch_bytes(
                 timeout=timeout if timeout is not None else DEFAULT_TIMEOUT,
             )
             if response.status_code == 429:
-                # 限流：指数退避（0.5s, 1s, 2s...）
-                wait = 0.5 * (2 ** attempt)
+                # 限流：指数退避（2s, 5s, 10s...），给按分钟限流的 API 足够恢复时间
+                wait = 2.0 * (2.5 ** attempt)
                 await asyncio.sleep(wait)
-                last_error = StockRequestError(f"Rate limited (429), retrying after {wait}s")
+                last_error = StockRequestError(f"Rate limited (429), retrying after {wait:.1f}s")
                 continue
             if response.status_code >= 400:
                 raise StockRequestError(f"Request failed with status {response.status_code}")

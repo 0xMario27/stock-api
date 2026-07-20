@@ -99,9 +99,14 @@ export const useStockStore = defineStore("stock", () => {
     error.value = "";
     try {
       const result = await getQuotes(watchlist.value, source.value, currentClass);
-      // 丢弃过期响应：切换 tab 后旧请求返回的不覆盖
       if (generation !== refreshGeneration) return;
       quotes.value = result;
+      // 检测全部数据源失败（source=base = 全零默认值）
+      const allFailed = result.length > 0 && result.every((q) => q.source === "base");
+      if (allFailed) {
+        const label = currentClass === "crypto" ? "加密货币" : "股票";
+        error.value = `${label}数据源暂时不可用（可能被限流），稍后会自动重试`;
+      }
     } catch (e) {
       if (generation !== refreshGeneration) return;
       error.value = e instanceof Error ? e.message : String(e);
