@@ -5,7 +5,7 @@ export type Market = "cn_a" | "hk" | "us" | "crypto";
 export type KlinePeriod = "day" | "week" | "month";
 export type KlineAdjust = "none" | "qfq" | "hfq";
 export type InspectionStatus = "success" | "empty" | "error";
-export type SourceName = "auto" | "tencent" | "sina" | "eastmoney" | "coingecko";
+export type SourceName = "auto" | "tencent" | "sina" | "eastmoney" | "coingecko" | "binance";
 
 export interface Quote {
   code: string;

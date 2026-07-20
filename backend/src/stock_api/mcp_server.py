@@ -16,7 +16,7 @@ from stock_api.core.registry import create_default_registry
 
 _PROTOCOL_VERSION = "2025-06-18"
 
-_SOURCE_NAMES = ["auto", "tencent", "sina", "eastmoney", "coingecko"]
+_SOURCE_NAMES = ["auto", "tencent", "sina", "eastmoney", "coingecko", "binance"]
 _ASSET_CLASSES = ["stock", "crypto"]
 
 def _source_schema() -> dict[str, Any]:

@@ -172,6 +172,7 @@ onBeforeUnmount(() => {
           <select v-else v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
             <option value="coingecko">CoinGecko</option>
+            <option value="binance">Binance</option>
           </select>
           <button class="ui-btn" @click="goInspect">诊断</button>
         </div>

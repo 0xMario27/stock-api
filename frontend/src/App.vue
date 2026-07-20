@@ -84,6 +84,7 @@ onMounted(() => {
           >
             <option value="auto">自动兜底</option>
             <option value="coingecko">CoinGecko</option>
+            <option value="binance">Binance</option>
           </select>
 
           <button class="ui-icon-btn" @click="toggleTheme" :title="theme === 'dark' ? '切换到浅色' : '切换到深色'">

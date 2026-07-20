@@ -166,7 +166,7 @@ def create_default_registry() -> ProviderRegistry:
     二期接入更多 crypto 数据源时（如 Binance），在此处追加注册即可，
     或单独提供 register_crypto_providers(registry) 函数。
     """
-    from stock_api.providers.crypto import CoinGeckoProvider
+    from stock_api.providers.crypto import BinanceProvider, CoinGeckoProvider
     from stock_api.providers.eastmoney import EastmoneyProvider
     from stock_api.providers.sina import SinaProvider
     from stock_api.providers.tencent import TencentProvider
@@ -176,6 +176,7 @@ def create_default_registry() -> ProviderRegistry:
     registry.register(TencentProvider())
     registry.register(SinaProvider())
     registry.register(EastmoneyProvider())
-    # 加密货币数据源：auto 兜底顺序 coingecko（后续可追加 Binance 等）
+    # 加密货币数据源：auto 兜底顺序 coingecko -> binance
     registry.register(CoinGeckoProvider())
+    registry.register(BinanceProvider())
     return registry
