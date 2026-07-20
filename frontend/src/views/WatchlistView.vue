@@ -15,10 +15,24 @@ const refreshTimer = ref<number | null>(null);
 const prevPrices = ref<Record<string, number>>({});
 
 const marketLabel: Record<string, string> = {
+  cn_a: "A股",
+  hk: "港股",
+  us: "美股",
+  crypto: "加密",
+};
+
+const marketShort: Record<string, string> = {
   cn_a: "A",
   hk: "HK",
   us: "US",
   crypto: "COIN",
+};
+
+const marketBadgeClass: Record<string, string> = {
+  cn_a: "market-a",
+  hk: "market-hk",
+  us: "market-us",
+  crypto: "market-crypto",
 };
 
 function formatPrice(price: number): string {
@@ -210,7 +224,13 @@ onBeforeUnmount(() => {
               class="data-row"
               @click="viewDetail(quote.code)"
             >
-              <td class="col-code text-mono">{{ quote.code }}</td>
+              <td class="col-code">
+                <span class="text-mono">{{ quote.code }}</span>
+                <span
+                  v-if="quote.market"
+                  :class="['market-badge', marketBadgeClass[quote.market] || '']"
+                >{{ marketLabel[quote.market] || "?" }}</span>
+              </td>
               <td class="col-name">{{ quote.name }}</td>
               <td class="col-price ta-right text-mono">{{ formatPrice(quote.now) }}</td>
               <td class="col-pct ta-right text-mono">
@@ -411,7 +431,43 @@ onBeforeUnmount(() => {
 .ta-right { text-align: right; }
 .ta-center { text-align: center; }
 
-.col-code { font-weight: 600; }
+.col-code {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.market-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.market-a {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-up);
+}
+
+.market-hk {
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+}
+
+.market-us {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--color-primary);
+}
+
+.market-crypto {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--color-accent);
+}
 .col-pct { font-weight: 600; }
 
 /* 数据源标签用共享 .ui-source-badge */
