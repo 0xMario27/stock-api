@@ -1,6 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.eggs/
+build/
 dist/
-.DS_Store
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.db
+sqlite3
+
+# uv
+.python-version
+
+# Node / Frontend
 node_modules/
-coverage/
-status/
-examples/vendor/
+.npm/
+.pnpm-store/
+.vite/
+dist/
+*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+*.log
+
+# Env
+.env
+.env.local
+.env.*.local
