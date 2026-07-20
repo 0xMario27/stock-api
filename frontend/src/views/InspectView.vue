@@ -20,16 +20,23 @@ async function loadInspection(): Promise<void> {
   }
 }
 
-function statusType(status: string): "success" | "warning" | "danger" | "info" {
-  if (status === "success") return "success";
-  if (status === "empty") return "warning";
-  if (status === "error") return "danger";
-  return "info";
+function statusIcon(status: string): string {
+  if (status === "success") return "M20 6L9 17l-5-5";
+  if (status === "empty") return "M12 8v4M12 16h.01";
+  return "M18 6L6 18M6 6l12 12";
 }
 
-function statusLabel(status: string): string {
-  const map: Record<string, string> = { success: "成功", empty: "空数据", error: "错误" };
-  return map[status] || status;
+function statusColor(status: string): string {
+  if (status === "success") return "status-success";
+  if (status === "empty") return "status-empty";
+  return "status-error";
+}
+
+function formatPrice(price: number | undefined): string {
+  if (price === undefined || price === 0) return "-";
+  if (price >= 1000) return price.toFixed(2);
+  if (price >= 1) return price.toFixed(3);
+  return price.toFixed(8);
 }
 
 onMounted(() => loadInspection());
@@ -37,59 +44,82 @@ onMounted(() => loadInspection());
 
 <template>
   <div class="inspect-view" v-loading="loading">
-    <el-page-header @back="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)" class="page-header">
-      <template #content>
-        <span>{{ code }} 数据源诊断</span>
-      </template>
-    </el-page-header>
+    <div class="back-bar">
+      <button class="btn-back" @click="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        <span>返回详情</span>
+      </button>
+    </div>
 
-    <el-card v-if="inspection" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <span>最终结果：来自 {{ inspection.source }}</span>
-          <el-button size="small" @click="loadInspection">重新诊断</el-button>
+    <div v-if="inspection" class="card">
+      <div class="card-header">
+        <div class="header-title">
+          <span class="code text-mono">{{ inspection.code }}</span>
+          <span class="header-separator">·</span>
+          <span>数据源诊断</span>
         </div>
-      </template>
+        <button class="btn-refresh" @click="loadInspection" :disabled="loading">
+          重新诊断
+        </button>
+      </div>
 
-      <el-descriptions v-if="inspection.quote" :column="3" border>
-        <el-descriptions-item label="代码">{{ inspection.quote.code }}</el-descriptions-item>
-        <el-descriptions-item label="名称">{{ inspection.quote.name }}</el-descriptions-item>
-        <el-descriptions-item label="最新价">{{ inspection.quote.now.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="涨跌幅">
-          {{ (inspection.quote.percent * 100).toFixed(2) }}%
-        </el-descriptions-item>
-        <el-descriptions-item label="最高">{{ inspection.quote.high.toFixed(3) }}</el-descriptions-item>
-        <el-descriptions-item label="最低">{{ inspection.quote.low.toFixed(3) }}</el-descriptions-item>
-      </el-descriptions>
+      <!-- 最终结果 -->
+      <div class="result-section">
+        <div class="result-label">最终结果来源</div>
+        <div class="result-value">
+          <span class="result-source-badge" :class="{ 'source-active': inspection.source !== 'base' }">
+            {{ inspection.source }}
+          </span>
+        </div>
+      </div>
 
-      <el-divider />
+      <div v-if="inspection.quote" class="result-quote">
+        <div class="quote-item">
+          <span class="quote-label">名称</span>
+          <span class="quote-val">{{ inspection.quote.name }}</span>
+        </div>
+        <div class="quote-item">
+          <span class="quote-label">最新价</span>
+          <span class="quote-val text-mono">{{ formatPrice(inspection.quote.now) }}</span>
+        </div>
+        <div class="quote-item">
+          <span class="quote-label">涨跌幅</span>
+          <span class="quote-val text-mono" :class="inspection.quote.percent > 0 ? 'text-up' : inspection.quote.percent < 0 ? 'text-down' : 'text-flat'">
+            {{ (inspection.quote.percent * 100).toFixed(2) }}%
+          </span>
+        </div>
+      </div>
 
-      <h4>各数据源状态</h4>
-      <el-table :data="inspection.sources" style="width: 100%" row-key="source">
-        <el-table-column prop="source" label="数据源" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="quote.name" label="名称" width="180">
-          <template #default="{ row }">
-            {{ row.quote?.name || "-" }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="quote.now" label="最新价" width="100" align="right">
-          <template #default="{ row }">
-            {{ row.quote?.now?.toFixed(3) || "-" }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="error" label="错误信息">
-          <template #default="{ row }">
-            <span v-if="row.error" class="error-text">{{ row.error }}</span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      <!-- 分隔线 -->
+      <div class="divider"></div>
+
+      <!-- 各源状态 -->
+      <div class="sources-title">各数据源状态</div>
+      <div class="sources-list">
+        <div
+          v-for="src in inspection.sources"
+          :key="src.source"
+          class="source-row"
+        >
+          <div class="source-info">
+            <div :class="['status-icon', statusColor(src.status)]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="statusIcon(src.status)" />
+              </svg>
+            </div>
+            <span class="source-name">{{ src.source }}</span>
+            <span class="source-status-text" :class="statusColor(src.status)">{{ src.status }}</span>
+          </div>
+          <div class="source-detail">
+            <span v-if="src.quote && src.quote.name !== '---'" class="source-quote-name">{{ src.quote.name }}</span>
+            <span v-if="src.quote && src.quote.now" class="source-quote-price text-mono">{{ formatPrice(src.quote.now) }}</span>
+            <span v-if="src.error" class="source-error">{{ src.error }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -97,28 +127,255 @@ onMounted(() => loadInspection());
 .inspect-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
-.page-header {
-  background: #fff;
-  padding: 12px 16px;
-  border-radius: 4px;
+.back-bar {
+  display: flex;
+  align-items: center;
+}
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  transition: all var(--transition-fast);
+  min-height: 36px;
+}
+
+.btn-back:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-h4 {
-  margin: 16px 0 8px;
-  color: #303133;
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.error-text {
-  color: #f56c6c;
+.code {
+  font-size: 16px;
+}
+
+.header-separator {
+  color: var(--color-fg-muted);
+}
+
+.btn-refresh {
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg-secondary);
   font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 32px;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 最终结果 */
+.result-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.result-label {
+  font-size: 12px;
+  color: var(--color-fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.result-source-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  color: var(--color-fg-secondary);
+}
+
+.source-active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.result-quote {
+  display: flex;
+  gap: var(--space-8);
+  padding: 0 var(--space-5) var(--space-4);
+  flex-wrap: wrap;
+}
+
+.quote-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quote-label {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quote-val {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 0 var(--space-5);
+}
+
+/* 各源状态 */
+.sources-title {
+  padding: var(--space-4) var(--space-5) var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sources-list {
+  padding: 0 var(--space-5) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  gap: var(--space-4);
+}
+
+.source-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 160px;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-success {
+  background: rgba(38, 166, 154, 0.15);
+  color: #26A69A;
+}
+
+.status-empty {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-primary);
+}
+
+.status-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-destructive);
+}
+
+.source-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg);
+}
+
+.source-status-text {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.source-detail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.source-quote-name {
+  font-size: 12px;
+  color: var(--color-fg-secondary);
+}
+
+.source-quote-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg);
+}
+
+.source-error {
+  font-size: 11px;
+  color: var(--color-destructive);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .source-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .source-detail {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .result-quote {
+    gap: var(--space-4);
+  }
 }
 </style>

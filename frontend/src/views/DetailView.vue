@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import { getKlines, getQuote } from "@/api";
@@ -11,6 +11,7 @@ const router = useRouter();
 const quote = ref<Quote | null>(null);
 const klines = ref<Kline[]>([]);
 const loading = ref(false);
+const klineLoading = ref(false);
 const period = ref<KlinePeriod>("day");
 const adjust = ref<KlineAdjust>("none");
 const source = ref<SourceName>("auto");
@@ -21,82 +22,130 @@ let refreshTimer: number | null = null;
 const isCrypto = computed(() => props.assetClass === "crypto");
 
 function formatPrice(price: number): string {
-  if (price >= 1000) return price.toFixed(2);
+  if (price >= 1000) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (price >= 1) return price.toFixed(3);
   if (price >= 0.01) return price.toFixed(5);
   return price.toFixed(8);
 }
 
-function percentClass(percent: number): string {
+function formatPercent(percent: number): string {
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${(percent * 100).toFixed(2)}%`;
+}
+
+function priceClass(percent: number): string {
   if (percent > 0) return "text-up";
   if (percent < 0) return "text-down";
   return "text-flat";
-}
-
-function formatPercent(percent: number): string {
-  return `${(percent * 100).toFixed(2)}%`;
 }
 
 async function loadQuote(): Promise<void> {
   try {
     quote.value = await getQuote(props.code, source.value, props.assetClass);
   } catch {
-    // keep last
+    /* keep last */
   }
 }
 
 async function loadKlines(): Promise<void> {
-  loading.value = true;
+  klineLoading.value = true;
   try {
     klines.value = await getKlines(
       props.code,
       { period: period.value, adjust: adjust.value, count: 120, source: source.value },
       props.assetClass
     );
+    await nextTick();
     renderChart();
   } finally {
-    loading.value = false;
+    klineLoading.value = false;
   }
 }
 
 function renderChart(): void {
-  if (!chartContainer.value || klines.value.length === 0) return;
+  if (!chartContainer.value) return;
+
   if (!chart) {
-    chart = echarts.init(chartContainer.value);
+    chart = echarts.init(chartContainer.value, undefined, { renderer: "canvas" });
   }
-  const data = klines.value.map((k) => ({
-    value: [k.open, k.close, k.low, k.high],
-    volume: k.volume ?? 0,
-  }));
+
+  if (klines.value.length === 0) {
+    chart.clear();
+    return;
+  }
+
+  const data = klines.value.map((k) => [k.open, k.close, k.low, k.high]);
   const dates = klines.value.map((k) => k.date);
   const volumes = klines.value.map((k) => k.volume ?? 0);
 
+  // 从 CSS 变量获取涨跌色
+  const style = getComputedStyle(document.documentElement);
+  const upColor = style.getPropertyValue("--color-up").trim() || "#EF4444";
+  const downColor = style.getPropertyValue("--color-down").trim() || "#26A69A";
+  const borderColor = style.getPropertyValue("--color-border").trim() || "#334155";
+  const fgSecondary = style.getPropertyValue("--color-fg-secondary").trim() || "#94A3B8";
+
   chart.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
-    legend: { data: ["K线", "成交量"], top: 0 },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "cross", lineStyle: { color: borderColor } },
+      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      borderColor: borderColor,
+      textStyle: { color: "#F8FAFC", fontFamily: "var(--font-mono)" },
+    },
     grid: [
-      { left: "8%", right: "4%", top: "12%", height: "58%" },
-      { left: "8%", right: "4%", top: "76%", height: "16%" },
+      { left: "6%", right: "3%", top: "4%", height: "62%" },
+      { left: "6%", right: "3%", top: "72%", height: "22%" },
     ],
     xAxis: [
-      { type: "category", data: dates, scale: true, boundaryGap: false, axisLine: { onZero: false } },
-      { type: "category", gridIndex: 1, data: dates, scale: true, boundaryGap: false, show: false },
+      {
+        type: "category",
+        data: dates,
+        scale: true,
+        boundaryGap: false,
+        axisLine: { lineStyle: { color: borderColor } },
+        axisLabel: { color: fgSecondary, fontSize: 10 },
+        splitLine: { show: false },
+      },
+      {
+        type: "category",
+        gridIndex: 1,
+        data: dates,
+        scale: true,
+        boundaryGap: false,
+        axisLabel: { show: false },
+        axisLine: { lineStyle: { color: borderColor } },
+      },
     ],
     yAxis: [
-      { scale: true, splitArea: { show: true } },
-      { gridIndex: 1, splitNumber: 2, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } },
+      {
+        scale: true,
+        splitArea: { show: false },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: fgSecondary, fontSize: 10 },
+        splitLine: { lineStyle: { color: "rgba(51, 65, 85, 0.3)" } },
+      },
+      {
+        gridIndex: 1,
+        splitNumber: 2,
+        axisLabel: { show: false },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+      },
     ],
     series: [
       {
         name: "K线",
         type: "candlestick",
-        data: data.map((d) => d.value),
+        data: data,
         itemStyle: {
-          color: "#f56c6c",
-          color0: "#67c23a",
-          borderColor: "#f56c6c",
-          borderColor0: "#67c23a",
+          color: upColor,
+          color0: downColor,
+          borderColor: upColor,
+          borderColor0: downColor,
         },
       },
       {
@@ -106,13 +155,26 @@ function renderChart(): void {
         yAxisIndex: 1,
         data: volumes.map((v, i) => ({
           value: v,
-          itemStyle: { color: data[i].value[1] >= data[i].value[0] ? "#f56c6c" : "#67c23a" },
+          itemStyle: { color: data[i][1] >= data[i][0] ? upColor : downColor, opacity: 0.5 },
         })),
       },
     ],
     dataZoom: [
       { type: "inside", xAxisIndex: [0, 1], start: 60, end: 100 },
-      { show: true, type: "slider", xAxisIndex: [0, 1], top: "94%", start: 60, end: 100 },
+      {
+        show: true,
+        type: "slider",
+        xAxisIndex: [0, 1],
+        top: "96%",
+        start: 60,
+        end: 100,
+        height: 20,
+        borderColor: "transparent",
+        backgroundColor: "rgba(51, 65, 85, 0.2)",
+        fillerColor: "rgba(245, 158, 11, 0.1)",
+        handleStyle: { color: upColor },
+        textStyle: { color: fgSecondary, fontSize: 10 },
+      },
     ],
   });
 }
@@ -127,6 +189,14 @@ function stopAutoRefresh(): void {
     clearInterval(refreshTimer);
     refreshTimer = null;
   }
+}
+
+function handleResize(): void {
+  chart?.resize();
+}
+
+function goInspect(): void {
+  router.push(`/inspect/${props.code}?asset_class=${props.assetClass}`);
 }
 
 watch(() => props.code, () => {
@@ -149,89 +219,98 @@ onBeforeUnmount(() => {
   chart?.dispose();
   chart = null;
 });
-
-function handleResize(): void {
-  chart?.resize();
-}
-
-function goInspect(): void {
-  router.push(`/inspect/${props.code}?asset_class=${props.assetClass}`);
-}
 </script>
 
 <template>
-  <div class="detail-view" v-loading="loading">
-    <el-page-header @back="router.push('/')" class="page-header">
-      <template #content>
-        <span class="header-content">
-          <span class="code">{{ code }}</span>
-          <span v-if="quote" class="name">{{ quote.name }}</span>
-          <el-tag v-if="quote" size="small" type="info">{{ quote.source }}</el-tag>
-        </span>
-      </template>
-    </el-page-header>
+  <div class="detail-view">
+    <!-- 返回栏 -->
+    <div class="back-bar">
+      <button class="btn-back" @click="router.push('/')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        <span>返回列表</span>
+      </button>
+    </div>
 
-    <el-card v-if="quote" shadow="never" class="quote-card">
-      <div class="quote-grid">
-        <div class="quote-item">
-          <div class="label">最新价</div>
-          <div class="value">{{ formatPrice(quote.now) }}</div>
+    <!-- 行情头部 -->
+    <div v-if="quote" class="quote-header card">
+      <div class="quote-meta">
+        <div class="quote-code text-mono">{{ quote.code }}</div>
+        <div class="quote-name">{{ quote.name }}</div>
+        <span class="source-badge">{{ quote.source }}</span>
+      </div>
+      <div class="quote-price-section">
+        <div class="price-main" :class="priceClass(quote.percent)">
+          {{ formatPrice(quote.now) }}
         </div>
-        <div class="quote-item">
-          <div class="label">涨跌幅</div>
-          <div class="value" :class="percentClass(quote.percent)">
-            {{ formatPercent(quote.percent) }}
-          </div>
-        </div>
-        <div class="quote-item">
-          <div class="label">最高</div>
-          <div class="value">{{ formatPrice(quote.high) }}</div>
-        </div>
-        <div class="quote-item">
-          <div class="label">最低</div>
-          <div class="value">{{ formatPrice(quote.low) }}</div>
-        </div>
-        <div class="quote-item">
-          <div class="label">昨收</div>
-          <div class="value">{{ formatPrice(quote.yesterday) }}</div>
+        <div class="price-change" :class="priceClass(quote.percent)">
+          <span>{{ formatPercent(quote.percent) }}</span>
         </div>
       </div>
-    </el-card>
-
-    <el-card shadow="never" class="kline-card">
-      <template #header>
-        <div class="kline-header">
-          <span>K 线图</span>
-          <div class="kline-controls">
-            <el-radio-group v-model="period" size="small">
-              <el-radio-button label="day">日K</el-radio-button>
-              <el-radio-button label="week">周K</el-radio-button>
-              <el-radio-button label="month">月K</el-radio-button>
-            </el-radio-group>
-            <el-radio-group v-if="!isCrypto" v-model="adjust" size="small">
-              <el-radio-button label="none">不复权</el-radio-button>
-              <el-radio-button label="qfq">前复权</el-radio-button>
-              <el-radio-button label="hfq">后复权</el-radio-button>
-            </el-radio-group>
-            <el-select v-if="!isCrypto" v-model="source" size="small" style="width: 120px">
-              <el-option label="自动兜底" value="auto" />
-              <el-option label="腾讯" value="tencent" />
-              <el-option label="新浪" value="sina" />
-              <el-option label="东方财富" value="eastmoney" />
-            </el-select>
-            <el-select v-else v-model="source" size="small" style="width: 120px">
-              <el-option label="自动兜底" value="auto" />
-              <el-option label="CoinGecko" value="coingecko" />
-            </el-select>
-            <el-button size="small" @click="goInspect">
-              诊断数据源
-            </el-button>
-          </div>
+      <div class="quote-stats">
+        <div class="stat-item">
+          <div class="stat-label">最高</div>
+          <div class="stat-value text-mono">{{ formatPrice(quote.high) }}</div>
         </div>
-      </template>
-      <div ref="chartContainer" class="chart-container"></div>
-      <el-empty v-if="!loading && klines.length === 0" description="无 K 线数据" />
-    </el-card>
+        <div class="stat-item">
+          <div class="stat-label">最低</div>
+          <div class="stat-value text-mono">{{ formatPrice(quote.low) }}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">昨收</div>
+          <div class="stat-value text-mono">{{ formatPrice(quote.yesterday) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- K 线图 -->
+    <div class="card kline-card">
+      <div class="kline-header">
+        <span class="kline-title">K 线图</span>
+        <div class="kline-controls">
+          <div class="control-group">
+            <button
+              v-for="p in (['day','week','month'] as KlinePeriod[])"
+              :key="p"
+              :class="['control-btn', { active: period === p }]"
+              @click="period = p"
+            >
+              {{ p === 'day' ? '日K' : p === 'week' ? '周K' : '月K' }}
+            </button>
+          </div>
+          <div v-if="!isCrypto" class="control-group">
+            <button
+              v-for="a in (['none','qfq','hfq'] as KlineAdjust[])"
+              :key="a"
+              :class="['control-btn', { active: adjust === a }]"
+              @click="adjust = a"
+            >
+              {{ a === 'none' ? '不复权' : a === 'qfq' ? '前复权' : '后复权' }}
+            </button>
+          </div>
+          <select v-if="!isCrypto" v-model="source" class="control-select">
+            <option value="auto">自动兜底</option>
+            <option value="tencent">腾讯</option>
+            <option value="sina">新浪</option>
+            <option value="eastmoney">东方财富</option>
+          </select>
+          <select v-else v-model="source" class="control-select">
+            <option value="auto">自动兜底</option>
+            <option value="coingecko">CoinGecko</option>
+          </select>
+          <button class="control-btn" @click="goInspect">
+            诊断
+          </button>
+        </div>
+      </div>
+      <div v-loading="klineLoading" class="chart-area">
+        <div ref="chartContainer" class="chart-container"></div>
+        <div v-if="!klineLoading && klines.length === 0" class="chart-empty">
+          无 K 线数据
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -239,79 +318,262 @@ function goInspect(): void {
 .detail-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
-.page-header {
-  background: #fff;
-  padding: 12px 16px;
-  border-radius: 4px;
-}
-
-.header-content {
+/* 返回栏 */
+.back-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
-.code {
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  transition: all var(--transition-fast);
+  min-height: 36px;
+}
+
+.btn-back:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 卡片通用 */
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* 行情头部 */
+.quote-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) var(--space-6);
+  flex-wrap: wrap;
+}
+
+.quote-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.quote-code {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-fg);
+}
+
+.quote-name {
+  font-size: 13px;
+  color: var(--color-fg-secondary);
+}
+
+.source-badge {
+  display: inline-block;
+  width: fit-content;
+  font-size: 10px;
   font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  color: var(--color-fg-secondary);
+  margin-top: 4px;
+}
+
+.quote-price-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.price-main {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-change {
+  font-family: var(--font-mono);
   font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.name {
-  color: #606266;
+.quote-stats {
+  display: flex;
+  gap: var(--space-6);
 }
 
-.quote-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 16px;
-}
-
-.quote-item {
+.stat-item {
   text-align: center;
 }
 
-.quote-item .label {
-  font-size: 12px;
-  color: #909399;
-  margin-bottom: 4px;
+.stat-label {
+  font-size: 11px;
+  color: var(--color-fg-muted);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.quote-item .value {
-  font-size: 20px;
-  font-weight: 600;
+.stat-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-fg);
+}
+
+/* K 线卡片 */
+.kline-card {
+  display: flex;
+  flex-direction: column;
 }
 
 .kline-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-3);
+}
+
+.kline-title {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .kline-controls {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.control-group {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.control-btn {
+  padding: 6px 12px;
+  border: none;
+  background: var(--color-bg);
+  color: var(--color-fg-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 32px;
+  border-right: 1px solid var(--color-border);
+}
+
+.control-group .control-btn:last-child {
+  border-right: none;
+}
+
+.control-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+
+.control-btn.active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+
+.control-select {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  min-height: 32px;
+}
+
+.control-select:hover {
+  border-color: var(--color-fg-muted);
+}
+
+.control-select:focus {
+  border-color: var(--color-primary);
+}
+
+/* 图表区 */
+.chart-area {
+  position: relative;
+  padding: var(--space-3);
+  min-height: 520px;
 }
 
 .chart-container {
   width: 100%;
-  height: 480px;
+  height: 500px;
 }
 
-.text-up {
-  color: #f56c6c;
+.chart-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-fg-muted);
+  font-size: 14px;
 }
 
-.text-down {
-  color: #67c23a;
+/* 响应式 */
+@media (max-width: 768px) {
+  .quote-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+  .quote-stats {
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .price-main {
+    font-size: 28px;
+  }
 }
 
-.text-flat {
-  color: #909399;
+@media (max-width: 640px) {
+  .kline-controls {
+    width: 100%;
+  }
+  .control-select {
+    flex: 1;
+  }
+  .chart-container {
+    height: 400px;
+  }
+  .chart-area {
+    min-height: 420px;
+  }
 }
 </style>

@@ -1,0 +1,268 @@
+/* 全局样式 + Element Plus 暗色主题覆盖 */
+
+@import './variables.css';
+
+/* === Reset === */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* === 滚动条 === */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-muted);
+}
+
+/* === Element Plus 暗色覆盖 === */
+html.dark {
+  color-scheme: dark;
+}
+
+/* 卡片 */
+.el-card {
+  background-color: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border-light) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.el-card__header {
+  border-bottom: 1px solid var(--color-border-light) !important;
+  padding: var(--space-4) var(--space-5) !important;
+}
+
+.el-card__body {
+  padding: var(--space-5) !important;
+}
+
+/* 表格 */
+.el-table {
+  background-color: transparent !important;
+  color: var(--color-fg) !important;
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-border-color: var(--color-border-light);
+  --el-table-header-bg-color: var(--color-muted);
+  --el-table-row-hover-bg-color: var(--color-bg-hover);
+  --el-table-text-color: var(--color-fg);
+  --el-table-header-text-color: var(--color-fg-secondary);
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--color-muted) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--color-fg-secondary) !important;
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--color-border-light) !important;
+}
+
+.el-table__row:hover > td.el-table__cell {
+  background-color: var(--color-bg-hover) !important;
+}
+
+/* 输入框 */
+.el-input__wrapper {
+  background-color: var(--color-bg) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-md) !important;
+  transition: border-color var(--transition-fast) !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: var(--color-fg-muted) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15) !important;
+}
+
+.el-input__inner {
+  color: var(--color-fg) !important;
+}
+
+.el-input__inner::placeholder {
+  color: var(--color-fg-muted) !important;
+}
+
+/* 按钮 */
+.el-button {
+  border-radius: var(--radius-md) !important;
+  font-weight: 500 !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.el-button--primary {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-bg) !important;
+}
+
+.el-button--primary:hover {
+  background-color: var(--color-primary-hover) !important;
+  border-color: var(--color-primary-hover) !important;
+}
+
+/* Radio Group */
+.el-radio-button__inner {
+  background-color: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-fg-secondary) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-bg) !important;
+  box-shadow: none !important;
+}
+
+/* Select */
+.el-select .el-input__wrapper {
+  background-color: var(--color-bg-elevated) !important;
+}
+
+/* Tag */
+.el-tag {
+  border-radius: var(--radius-sm) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border: none !important;
+}
+
+.el-tag--info {
+  background-color: var(--color-muted) !important;
+  color: var(--color-fg-secondary) !important;
+}
+
+/* Descriptions */
+.el-descriptions__label {
+  color: var(--color-fg-secondary) !important;
+  background-color: var(--color-muted) !important;
+}
+
+.el-descriptions__content {
+  color: var(--color-fg) !important;
+  background-color: var(--color-bg-elevated) !important;
+}
+
+.el-descriptions__cell {
+  border-color: var(--color-border-light) !important;
+}
+
+/* Empty */
+.el-empty__description p {
+  color: var(--color-fg-muted) !important;
+}
+
+/* Alert */
+.el-alert--error {
+  background-color: var(--color-down-bg) !important;
+  border: 1px solid var(--color-down) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.el-alert__title {
+  color: var(--color-fg) !important;
+}
+
+/* Divider */
+.el-divider {
+  border-color: var(--color-border-light) !important;
+}
+
+/* Page Header */
+.el-page-header__back {
+  color: var(--color-fg-secondary) !important;
+}
+
+.el-page-header__content {
+  color: var(--color-fg) !important;
+}
+
+/* === 动画 === */
+@keyframes flash-up {
+  0% { background-color: var(--color-up-bg); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-down {
+  0% { background-color: var(--color-down-bg); }
+  100% { background-color: transparent; }
+}
+
+.flash-up {
+  animation: flash-up 1s ease-out;
+}
+
+.flash-down {
+  animation: flash-down 1s ease-out;
+}
+
+/* 骨架屏 */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* === 工具类 === */
+.text-up { color: var(--color-up); }
+.text-down { color: var(--color-down); }
+.text-flat { color: var(--color-fg-muted); }
+.text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.text-secondary { color: var(--color-fg-secondary); }
+.text-muted { color: var(--color-fg-muted); }
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
