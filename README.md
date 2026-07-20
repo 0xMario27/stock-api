@@ -5,7 +5,9 @@
 - 后端：Python 3.11+ / FastAPI / async httpx / uv 包管理
 - 前端：Vue 3 + Vite + TypeScript + Element Plus + Pinia
 - 部署：Docker + docker-compose
-- 数据源：腾讯 / 新浪 / 东方财富（自动兜底），抽象层为二期加密货币接入预留
+- 股票数据源：腾讯 / 新浪 / 东方财富（自动兜底）
+- 加密货币数据源：CoinGecko（无需 API Key）
+- 统一抽象层：DataProvider + ProviderRegistry，按 AssetClass 分组路由
 
 ## 目录结构
 
@@ -64,6 +66,8 @@ docker compose up -d --build
 
 ## 支持功能
 
+所有接口均支持 `asset_class=stock|crypto` 参数切换资产类别。
+
 | 能力 | API | CLI | MCP |
 | --- | --- | --- | --- |
 | 单只行情 | `GET /api/quote/{code}` | `get-stock` | `get_stock` |
@@ -72,7 +76,9 @@ docker compose up -d --build
 | 搜索 | `GET /api/search?q=` | `search` | `search_stocks` |
 | 诊断 | `GET /api/inspect/{code}` | `inspect` | `inspect_stock` |
 
-## 数据源抽象（为二期 crypto 准备）
+股票代码使用 `SH` / `SZ` / `HK` / `US` 前缀（如 `SH510500`）。加密货币使用 CoinGecko coin ID（如 `bitcoin`、`ethereum`），可通过搜索接口查询。
+
+## 数据源抽象
 
 核心抽象在 `backend/src/stock_api/core/`：
 
@@ -80,10 +86,19 @@ docker compose up -d --build
 - `DataProvider` 抽象基类：声明 `asset_class`、`supported_markets`、统一异步接口
 - `ProviderRegistry`：按 `asset_class` 分组注册，`get_auto(asset_class)` 返回跨源兜底的 `AutoProvider`
 
-二期接入加密货币只需：
+### 已支持数据源
+
+| 资产类别 | 数据源 | auto 兜底顺序 |
+| --- | --- | --- |
+| 股票 (stock) | 腾讯 / 新浪 / 东方财富 | tencent -> sina -> eastmoney |
+| 加密货币 (crypto) | CoinGecko | coingecko |
+
+### 扩展新数据源
+
+以新增 Binance 加密货币源为例：
 1. 新增 `providers/crypto/binance.py`，继承 `DataProvider`，`asset_class = CRYPTO`
-2. 在 `providers/__init__.py` 注册
-3. 前端 / API 无需改动，auto 路由自动生效
+2. 在 `core/registry.py` 的 `create_default_registry()` 注册
+3. 前端 / API / MCP 无需改动，auto 路由自动生效
 
 ## 免责声明
 

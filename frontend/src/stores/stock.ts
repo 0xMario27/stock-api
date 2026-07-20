@@ -1,40 +1,75 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { getQuote, getQuotes } from "@/api";
-import type { Quote, SourceName } from "@/types";
+import type { AssetClass, Quote, SourceName } from "@/types";
 
-const WATCHLIST_KEY = "stock-api-py:watchlist";
-const SOURCE_KEY = "stock-api-py:source";
+const STOCK_KEY = "stock-api-py:watchlist:stock";
+const CRYPTO_KEY = "stock-api-py:watchlist:crypto";
+const SOURCE_STOCK_KEY = "stock-api-py:source:stock";
+const SOURCE_CRYPTO_KEY = "stock-api-py:source:crypto";
+const ASSET_CLASS_KEY = "stock-api-py:asset_class";
+
+const DEFAULT_STOCK_WATCHLIST = ["SH510500", "SZ000651", "SH600519"];
+const DEFAULT_CRYPTO_WATCHLIST = ["bitcoin", "ethereum", "solana"];
+
+function loadList(key: string, fallback: string[]): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export const useStockStore = defineStore("stock", () => {
+  const assetClass = ref<AssetClass>(
+    (localStorage.getItem(ASSET_CLASS_KEY) as AssetClass) || "stock"
+  );
+  const stockWatchlist = ref<string[]>(loadList(STOCK_KEY, DEFAULT_STOCK_WATCHLIST));
+  const cryptoWatchlist = ref<string[]>(loadList(CRYPTO_KEY, DEFAULT_CRYPTO_WATCHLIST));
+  const sourceStock = ref<SourceName>(
+    (localStorage.getItem(SOURCE_STOCK_KEY) as SourceName) || "auto"
+  );
+  const sourceCrypto = ref<SourceName>(
+    (localStorage.getItem(SOURCE_CRYPTO_KEY) as SourceName) || "auto"
+  );
+
   const quotes = ref<Quote[]>([]);
   const loading = ref(false);
   const error = ref("");
-  const source = ref<SourceName>(
-    (localStorage.getItem(SOURCE_KEY) as SourceName) || "auto"
-  );
-  const watchlist = ref<string[]>(loadWatchlist());
 
-  function loadWatchlist(): string[] {
-    try {
-      const raw = localStorage.getItem(WATCHLIST_KEY);
-      return raw ? JSON.parse(raw) : ["SH510500", "SZ000651", "SH600519"];
-    } catch {
-      return ["SH510500", "SZ000651", "SH600519"];
+  const watchlist = computed(() =>
+    assetClass.value === "crypto" ? cryptoWatchlist.value : stockWatchlist.value
+  );
+  const source = computed<SourceName>(() =>
+    assetClass.value === "crypto" ? sourceCrypto.value : sourceStock.value
+  );
+
+  function setAssetClass(next: AssetClass): void {
+    assetClass.value = next;
+    localStorage.setItem(ASSET_CLASS_KEY, next);
+    quotes.value = [];
+    refresh();
+  }
+
+  function setSource(next: SourceName): void {
+    if (assetClass.value === "crypto") {
+      sourceCrypto.value = next;
+      localStorage.setItem(SOURCE_CRYPTO_KEY, next);
+    } else {
+      sourceStock.value = next;
+      localStorage.setItem(SOURCE_STOCK_KEY, next);
     }
   }
 
   function persistWatchlist(): void {
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist.value));
-  }
-
-  function setSource(next: SourceName): void {
-    source.value = next;
-    localStorage.setItem(SOURCE_KEY, next);
+    const key = assetClass.value === "crypto" ? CRYPTO_KEY : STOCK_KEY;
+    localStorage.setItem(key, JSON.stringify(watchlist.value));
   }
 
   function addCode(code: string): void {
-    const normalized = code.trim().toUpperCase();
+    const normalized =
+      assetClass.value === "crypto" ? code.trim().toLowerCase() : code.trim().toUpperCase();
     if (normalized && !watchlist.value.includes(normalized)) {
       watchlist.value.push(normalized);
       persistWatchlist();
@@ -42,7 +77,8 @@ export const useStockStore = defineStore("stock", () => {
   }
 
   function removeCode(code: string): void {
-    watchlist.value = watchlist.value.filter((c) => c !== code);
+    const list = assetClass.value === "crypto" ? cryptoWatchlist : stockWatchlist;
+    list.value = list.value.filter((c) => c !== code);
     quotes.value = quotes.value.filter((q) => q.code !== code);
     persistWatchlist();
   }
@@ -55,7 +91,7 @@ export const useStockStore = defineStore("stock", () => {
     loading.value = true;
     error.value = "";
     try {
-      quotes.value = await getQuotes(watchlist.value, source.value);
+      quotes.value = await getQuotes(watchlist.value, source.value, assetClass.value);
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e);
     } finally {
@@ -65,7 +101,7 @@ export const useStockStore = defineStore("stock", () => {
 
   async function refreshOne(code: string): Promise<void> {
     try {
-      const quote = await getQuote(code, source.value);
+      const quote = await getQuote(code, source.value, assetClass.value);
       const index = quotes.value.findIndex((q) => q.code === code);
       if (index >= 0) {
         quotes.value[index] = quote;
@@ -78,6 +114,7 @@ export const useStockStore = defineStore("stock", () => {
   }
 
   return {
+    assetClass,
     quotes,
     loading,
     error,
@@ -87,6 +124,7 @@ export const useStockStore = defineStore("stock", () => {
     removeCode,
     refresh,
     refreshOne,
+    setAssetClass,
     setSource,
   };
 });

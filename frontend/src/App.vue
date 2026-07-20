@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, watch } from "vue";
 import { useStockStore } from "@/stores/stock";
 
 const store = useStockStore();
@@ -7,6 +7,11 @@ const store = useStockStore();
 onMounted(() => {
   store.refresh();
 });
+
+watch(
+  () => store.assetClass,
+  () => store.refresh()
+);
 </script>
 
 <template>
@@ -17,17 +22,38 @@ onMounted(() => {
           <span class="logo-icon">📈</span>
           <span class="logo-text">stock-api</span>
         </router-link>
-        <el-select
-          :model-value="store.source"
-          @update:model-value="store.setSource($event as any)"
-          size="small"
-          style="width: 140px"
-        >
-          <el-option label="自动兜底" value="auto" />
-          <el-option label="腾讯" value="tencent" />
-          <el-option label="新浪" value="sina" />
-          <el-option label="东方财富" value="eastmoney" />
-        </el-select>
+        <div class="header-controls">
+          <el-radio-group
+            :model-value="store.assetClass"
+            @update:model-value="store.setAssetClass($event as any)"
+            size="small"
+          >
+            <el-radio-button label="stock">股票</el-radio-button>
+            <el-radio-button label="crypto">加密货币</el-radio-button>
+          </el-radio-group>
+          <el-select
+            v-if="store.assetClass === 'stock'"
+            :model-value="store.source"
+            @update:model-value="store.setSource($event as any)"
+            size="small"
+            style="width: 140px"
+          >
+            <el-option label="自动兜底" value="auto" />
+            <el-option label="腾讯" value="tencent" />
+            <el-option label="新浪" value="sina" />
+            <el-option label="东方财富" value="eastmoney" />
+          </el-select>
+          <el-select
+            v-else
+            :model-value="store.source"
+            @update:model-value="store.setSource($event as any)"
+            size="small"
+            style="width: 140px"
+          >
+            <el-option label="自动兜底" value="auto" />
+            <el-option label="CoinGecko" value="coingecko" />
+          </el-select>
+        </div>
       </div>
     </el-header>
     <el-main class="app-main">
@@ -87,6 +113,12 @@ body {
 
 .logo-icon {
   font-size: 22px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .app-main {

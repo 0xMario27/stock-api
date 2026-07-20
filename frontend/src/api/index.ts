@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {
+  AssetClass,
   AutoInspection,
   Kline,
   KlineQuery,
@@ -10,45 +11,74 @@ import type {
 
 const http = axios.create({
   baseURL: "/api",
-  timeout: 15000,
+  timeout: 30000,
 });
 
-export async function getQuote(code: string, source: SourceName = "auto"): Promise<Quote> {
-  const { data } = await http.get<Quote>(`/quote/${code}`, { params: { source } });
-  return data;
-}
-
-export async function getQuotes(codes: string[], source: SourceName = "auto"): Promise<Quote[]> {
-  const { data } = await http.get<Quote[]>("/quotes", {
-    params: { codes, source },
+export async function getQuote(
+  code: string,
+  source: SourceName = "auto",
+  assetClass: AssetClass = "stock"
+): Promise<Quote> {
+  const { data } = await http.get<Quote>(`/quote/${code}`, {
+    params: { source, asset_class: assetClass },
   });
   return data;
 }
 
-export async function getKlines(code: string, query: KlineQuery = {}): Promise<Kline[]> {
+export async function getQuotes(
+  codes: string[],
+  source: SourceName = "auto",
+  assetClass: AssetClass = "stock"
+): Promise<Quote[]> {
+  const { data } = await http.get<Quote[]>("/quotes", {
+    params: { codes, source, asset_class: assetClass },
+  });
+  return data;
+}
+
+export async function getKlines(
+  code: string,
+  query: KlineQuery = {},
+  assetClass: AssetClass = "stock"
+): Promise<Kline[]> {
   const { data } = await http.get<Kline[]>(`/klines/${code}`, {
     params: {
       period: query.period ?? "day",
       count: query.count ?? 120,
       adjust: query.adjust ?? "none",
       source: query.source ?? "auto",
+      asset_class: assetClass,
     },
   });
   return data;
 }
 
-export async function searchSymbols(q: string, source: SourceName = "auto"): Promise<Symbol[]> {
-  const { data } = await http.get<Symbol[]>("/search", { params: { q, source } });
+export async function searchSymbols(
+  q: string,
+  source: SourceName = "auto",
+  assetClass: AssetClass = "stock"
+): Promise<Symbol[]> {
+  const { data } = await http.get<Symbol[]>("/search", {
+    params: { q, source, asset_class: assetClass },
+  });
   return data;
 }
 
-export async function inspectStock(code: string, source: SourceName = "auto"): Promise<AutoInspection> {
-  const { data } = await http.get<AutoInspection>(`/inspect/${code}`, { params: { source } });
+export async function inspectStock(
+  code: string,
+  source: SourceName = "auto",
+  assetClass: AssetClass = "stock"
+): Promise<AutoInspection> {
+  const { data } = await http.get<AutoInspection>(`/inspect/${code}`, {
+    params: { source, asset_class: assetClass },
+  });
   return data;
 }
 
-export async function listSources(): Promise<string[]> {
-  const { data } = await http.get<string[]>("/sources");
+export async function listSources(assetClass?: AssetClass): Promise<string[]> {
+  const { data } = await http.get<string[]>("/sources", {
+    params: assetClass ? { asset_class: assetClass } : {},
+  });
   return data;
 }
 

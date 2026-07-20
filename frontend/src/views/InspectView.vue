@@ -2,9 +2,9 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { inspectStock } from "@/api";
-import type { AutoInspection, SourceName } from "@/types";
+import type { AssetClass, AutoInspection, SourceName } from "@/types";
 
-const props = defineProps<{ code: string }>();
+const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
 
 const inspection = ref<AutoInspection | null>(null);
@@ -14,7 +14,7 @@ const source = ref<SourceName>("auto");
 async function loadInspection(): Promise<void> {
   loading.value = true;
   try {
-    inspection.value = await inspectStock(props.code, source.value);
+    inspection.value = await inspectStock(props.code, source.value, props.assetClass);
   } finally {
     loading.value = false;
   }
@@ -37,7 +37,7 @@ onMounted(() => loadInspection());
 
 <template>
   <div class="inspect-view" v-loading="loading">
-    <el-page-header @back="router.push(`/stock/${code}`)" class="page-header">
+    <el-page-header @back="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)" class="page-header">
       <template #content>
         <span>{{ code }} 数据源诊断</span>
       </template>
@@ -54,7 +54,7 @@ onMounted(() => loadInspection());
       <el-descriptions v-if="inspection.quote" :column="3" border>
         <el-descriptions-item label="代码">{{ inspection.quote.code }}</el-descriptions-item>
         <el-descriptions-item label="名称">{{ inspection.quote.name }}</el-descriptions-item>
-        <el-descriptions-item label="最新价">{{ inspection.quote.now.toFixed(3) }}</el-descriptions-item>
+        <el-descriptions-item label="最新价">{{ inspection.quote.now.toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="涨跌幅">
           {{ (inspection.quote.percent * 100).toFixed(2) }}%
         </el-descriptions-item>

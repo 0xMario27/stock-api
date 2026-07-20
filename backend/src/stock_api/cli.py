@@ -23,16 +23,16 @@ from stock_api.core.registry import create_default_registry
 
 app = typer.Typer(
     name="stock-api",
-    help="A 股 / 港股 / 美股行情查询 CLI",
+    help="A 股 / 港股 / 美股 / 加密货币行情查询 CLI",
     no_args_is_help=True,
     add_completion=False,
 )
 console = Console()
 
 
-def _get_provider(registry, source: str):
+def _get_provider(registry, source: str, asset_class: AssetClass = AssetClass.STOCK):
     if source == "auto":
-        return registry.get_auto(AssetClass.STOCK)
+        return registry.get_auto(asset_class)
     return registry.get(source)
 
 
@@ -48,39 +48,42 @@ def _json_default(obj):
 
 @app.command()
 def get_stock(
-    code: str = typer.Argument(..., help="股票代码，如 SH510500"),
-    source: str = typer.Option("auto", "--source", "-s", help="auto / tencent / sina / eastmoney"),
+    code: str = typer.Argument(..., help="代码，如 SH510500 或 bitcoin"),
+    source: str = typer.Option("auto", "--source", "-s", help="auto / tencent / sina / eastmoney / coingecko"),
+    asset_class: AssetClass = typer.Option(AssetClass.STOCK, "--asset-class", "-a", help="stock / crypto"),
 ) -> None:
-    """获取单只股票行情。"""
+    """获取单只行情。"""
     registry = create_default_registry()
-    provider = _get_provider(registry, source)
+    provider = _get_provider(registry, source, asset_class)
     quote = asyncio.run(provider.get_quote(code))
     _print_json(quote)
 
 
 @app.command()
 def get_stocks(
-    codes: list[str] = typer.Argument(..., help="股票代码列表"),
+    codes: list[str] = typer.Argument(..., help="代码列表"),
     source: str = typer.Option("auto", "--source", "-s"),
+    asset_class: AssetClass = typer.Option(AssetClass.STOCK, "--asset-class", "-a"),
 ) -> None:
-    """批量获取股票行情。"""
+    """批量获取行情。"""
     registry = create_default_registry()
-    provider = _get_provider(registry, source)
+    provider = _get_provider(registry, source, asset_class)
     quotes = asyncio.run(provider.get_quotes(codes))
     _print_json(quotes)
 
 
 @app.command()
 def get_klines(
-    code: str = typer.Argument(..., help="股票代码"),
+    code: str = typer.Argument(..., help="代码"),
     period: KlinePeriod = typer.Option(KlinePeriod.DAY, "--period", "-p", help="day / week / month"),
     count: int = typer.Option(120, "--count", "-c", help="返回条数"),
     adjust: KlineAdjust = typer.Option(KlineAdjust.NONE, "--adjust", help="none / qfq / hfq"),
     source: str = typer.Option("auto", "--source", "-s"),
+    asset_class: AssetClass = typer.Option(AssetClass.STOCK, "--asset-class", "-a"),
 ) -> None:
     """获取 K 线数据。"""
     registry = create_default_registry()
-    provider = _get_provider(registry, source)
+    provider = _get_provider(registry, source, asset_class)
     options = KlineOptions(period=period, count=count, adjust=adjust)
     klines = asyncio.run(provider.get_klines(code, options))
     _print_json(klines)
@@ -90,31 +93,35 @@ def get_klines(
 def search(
     query: str = typer.Argument(..., help="搜索关键词"),
     source: str = typer.Option("auto", "--source", "-s"),
+    asset_class: AssetClass = typer.Option(AssetClass.STOCK, "--asset-class", "-a"),
 ) -> None:
-    """搜索股票代码。"""
+    """搜索代码。"""
     registry = create_default_registry()
-    provider = _get_provider(registry, source)
+    provider = _get_provider(registry, source, asset_class)
     symbols = asyncio.run(provider.search_symbols(query))
     _print_json(symbols)
 
 
 @app.command()
 def inspect(
-    code: str = typer.Argument(..., help="股票代码"),
+    code: str = typer.Argument(..., help="代码"),
     source: str = typer.Option("auto", "--source", "-s"),
+    asset_class: AssetClass = typer.Option(AssetClass.STOCK, "--asset-class", "-a"),
 ) -> None:
     """诊断数据源可用性。"""
     registry = create_default_registry()
-    provider = _get_provider(registry, source)
+    provider = _get_provider(registry, source, asset_class)
     inspection = asyncio.run(provider.inspect(code))
     _print_json(inspection)
 
 
 @app.command()
-def sources() -> None:
+def sources(
+    asset_class: AssetClass | None = typer.Option(None, "--asset-class", "-a", help="stock / crypto"),
+) -> None:
     """列出可用数据源。"""
     registry = create_default_registry()
-    _print_json(registry.list_names(AssetClass.STOCK))
+    _print_json(registry.list_names(asset_class))
 
 
 @app.command()

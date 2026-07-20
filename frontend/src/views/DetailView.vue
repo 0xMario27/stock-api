@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import * as echarts from "echarts";
 import { getKlines, getQuote } from "@/api";
-import type { Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
+import type { AssetClass, Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
 
-const props = defineProps<{ code: string }>();
+const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
 
 const quote = ref<Quote | null>(null);
@@ -17,6 +17,15 @@ const source = ref<SourceName>("auto");
 const chartContainer = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
 let refreshTimer: number | null = null;
+
+const isCrypto = computed(() => props.assetClass === "crypto");
+
+function formatPrice(price: number): string {
+  if (price >= 1000) return price.toFixed(2);
+  if (price >= 1) return price.toFixed(3);
+  if (price >= 0.01) return price.toFixed(5);
+  return price.toFixed(8);
+}
 
 function percentClass(percent: number): string {
   if (percent > 0) return "text-up";
@@ -30,7 +39,7 @@ function formatPercent(percent: number): string {
 
 async function loadQuote(): Promise<void> {
   try {
-    quote.value = await getQuote(props.code, source.value);
+    quote.value = await getQuote(props.code, source.value, props.assetClass);
   } catch {
     // keep last
   }
@@ -39,12 +48,11 @@ async function loadQuote(): Promise<void> {
 async function loadKlines(): Promise<void> {
   loading.value = true;
   try {
-    klines.value = await getKlines(props.code, {
-      period: period.value,
-      adjust: adjust.value,
-      count: 120,
-      source: source.value,
-    });
+    klines.value = await getKlines(
+      props.code,
+      { period: period.value, adjust: adjust.value, count: 120, source: source.value },
+      props.assetClass
+    );
     renderChart();
   } finally {
     loading.value = false;
@@ -145,6 +153,10 @@ onBeforeUnmount(() => {
 function handleResize(): void {
   chart?.resize();
 }
+
+function goInspect(): void {
+  router.push(`/inspect/${props.code}?asset_class=${props.assetClass}`);
+}
 </script>
 
 <template>
@@ -163,7 +175,7 @@ function handleResize(): void {
       <div class="quote-grid">
         <div class="quote-item">
           <div class="label">最新价</div>
-          <div class="value">{{ quote.now.toFixed(3) }}</div>
+          <div class="value">{{ formatPrice(quote.now) }}</div>
         </div>
         <div class="quote-item">
           <div class="label">涨跌幅</div>
@@ -173,15 +185,15 @@ function handleResize(): void {
         </div>
         <div class="quote-item">
           <div class="label">最高</div>
-          <div class="value">{{ quote.high.toFixed(3) }}</div>
+          <div class="value">{{ formatPrice(quote.high) }}</div>
         </div>
         <div class="quote-item">
           <div class="label">最低</div>
-          <div class="value">{{ quote.low.toFixed(3) }}</div>
+          <div class="value">{{ formatPrice(quote.low) }}</div>
         </div>
         <div class="quote-item">
           <div class="label">昨收</div>
-          <div class="value">{{ quote.yesterday.toFixed(3) }}</div>
+          <div class="value">{{ formatPrice(quote.yesterday) }}</div>
         </div>
       </div>
     </el-card>
@@ -196,18 +208,22 @@ function handleResize(): void {
               <el-radio-button label="week">周K</el-radio-button>
               <el-radio-button label="month">月K</el-radio-button>
             </el-radio-group>
-            <el-radio-group v-model="adjust" size="small">
+            <el-radio-group v-if="!isCrypto" v-model="adjust" size="small">
               <el-radio-button label="none">不复权</el-radio-button>
               <el-radio-button label="qfq">前复权</el-radio-button>
               <el-radio-button label="hfq">后复权</el-radio-button>
             </el-radio-group>
-            <el-select v-model="source" size="small" style="width: 120px">
+            <el-select v-if="!isCrypto" v-model="source" size="small" style="width: 120px">
               <el-option label="自动兜底" value="auto" />
               <el-option label="腾讯" value="tencent" />
               <el-option label="新浪" value="sina" />
               <el-option label="东方财富" value="eastmoney" />
             </el-select>
-            <el-button size="small" @click="router.push(`/inspect/${code}`)">
+            <el-select v-else v-model="source" size="small" style="width: 120px">
+              <el-option label="自动兜底" value="auto" />
+              <el-option label="CoinGecko" value="coingecko" />
+            </el-select>
+            <el-button size="small" @click="goInspect">
               诊断数据源
             </el-button>
           </div>

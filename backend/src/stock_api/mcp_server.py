@@ -16,12 +16,29 @@ from stock_api.core.registry import create_default_registry
 
 _PROTOCOL_VERSION = "2025-06-18"
 
-_SOURCE_NAMES = ["auto", "tencent", "sina", "eastmoney"]
+_SOURCE_NAMES = ["auto", "tencent", "sina", "eastmoney", "coingecko"]
+_ASSET_CLASSES = ["stock", "crypto"]
+
+def _source_schema() -> dict[str, Any]:
+    return {
+        "type": "string",
+        "enum": _SOURCE_NAMES,
+        "description": "Data source. Defaults to auto.",
+    }
+
+
+def _asset_class_schema() -> dict[str, Any]:
+    return {
+        "type": "string",
+        "enum": _ASSET_CLASSES,
+        "description": "Asset class: stock or crypto. Defaults to stock.",
+    }
+
 
 _TOOLS: list[dict[str, Any]] = [
     {
         "name": "get_stock",
-        "description": "Get one normalized stock quote by code.",
+        "description": "Get one normalized stock or crypto quote by code.",
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
@@ -30,19 +47,16 @@ _TOOLS: list[dict[str, Any]] = [
                 "code": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Stock code, such as SH510500, SZ000651, HK02020, or USDJI.",
+                    "description": "Stock code (SH510500) or crypto coin id (bitcoin).",
                 },
-                "source": {
-                    "type": "string",
-                    "enum": _SOURCE_NAMES,
-                    "description": "Data source. Defaults to auto.",
-                },
+                "source": _source_schema(),
+                "asset_class": _asset_class_schema(),
             },
         },
     },
     {
         "name": "get_stocks",
-        "description": "Get normalized stock quotes for multiple codes.",
+        "description": "Get normalized quotes for multiple codes.",
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
@@ -52,9 +66,10 @@ _TOOLS: list[dict[str, Any]] = [
                     "type": "array",
                     "items": {"type": "string", "minLength": 1},
                     "minItems": 1,
-                    "description": "Stock codes, such as SH510500 or SZ000651.",
+                    "description": "Stock codes or crypto coin ids.",
                 },
-                "source": {"type": "string", "enum": _SOURCE_NAMES},
+                "source": _source_schema(),
+                "asset_class": _asset_class_schema(),
             },
         },
     },
@@ -83,13 +98,14 @@ _TOOLS: list[dict[str, Any]] = [
                     "enum": ["none", "qfq", "hfq"],
                     "description": "Price adjustment mode. Defaults to none.",
                 },
-                "source": {"type": "string", "enum": _SOURCE_NAMES},
+                "source": _source_schema(),
+                "asset_class": _asset_class_schema(),
             },
         },
     },
     {
         "name": "search_stocks",
-        "description": "Search stock symbols by keyword.",
+        "description": "Search stock or crypto symbols by keyword.",
         "inputSchema": {
             "type": "object",
             "additionalProperties": False,
@@ -98,9 +114,10 @@ _TOOLS: list[dict[str, Any]] = [
                 "query": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Search keyword, such as 格力电器.",
+                    "description": "Search keyword, such as 格力电器 or bitcoin.",
                 },
-                "source": {"type": "string", "enum": _SOURCE_NAMES},
+                "source": _source_schema(),
+                "asset_class": _asset_class_schema(),
             },
         },
     },
@@ -113,7 +130,8 @@ _TOOLS: list[dict[str, Any]] = [
             "required": ["code"],
             "properties": {
                 "code": {"type": "string", "minLength": 1},
-                "source": {"type": "string", "enum": _SOURCE_NAMES},
+                "source": _source_schema(),
+                "asset_class": _asset_class_schema(),
             },
         },
     },
@@ -168,6 +186,17 @@ def _optional_source(value: Any) -> str:
     return source
 
 
+def _optional_asset_class(value: Any) -> AssetClass:
+    if value is None:
+        return AssetClass.STOCK
+    ac = _require_string(value, "asset_class")
+    if ac == "crypto":
+        return AssetClass.CRYPTO
+    if ac == "stock":
+        return AssetClass.STOCK
+    raise ValueError(f"Invalid asset_class: {ac}")
+
+
 def _optional_period(value: Any) -> KlinePeriod | None:
     if value is None:
         return None
@@ -205,35 +234,38 @@ def _tool_result(data: dict[str, Any]) -> dict[str, Any]:
 async def _execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
     registry = create_default_registry()
 
-    def _get_provider(source: str):
+    def _get_provider(source: str, asset_class: AssetClass):
         if source == "auto":
-            return registry.get_auto(AssetClass.STOCK)
+            return registry.get_auto(asset_class)
         return registry.get(source)
 
     if name == "get_stock":
         source = _optional_source(args.get("source"))
+        asset_class = _optional_asset_class(args.get("asset_class"))
         code = _require_string(args.get("code"), "code")
-        provider = _get_provider(source)
+        provider = _get_provider(source, asset_class)
         quote = await provider.get_quote(code)
-        return {"input": {"code": code, "source": source}, "response": {"stock": quote}}
+        return {"input": {"code": code, "source": source, "asset_class": asset_class.value}, "response": {"stock": quote}}
 
     if name == "get_stocks":
         source = _optional_source(args.get("source"))
+        asset_class = _optional_asset_class(args.get("asset_class"))
         codes = _require_string_array(args.get("codes"), "codes")
-        provider = _get_provider(source)
+        provider = _get_provider(source, asset_class)
         quotes = await provider.get_quotes(codes)
         return {
-            "input": {"codes": codes, "source": source},
+            "input": {"codes": codes, "source": source, "asset_class": asset_class.value},
             "response": {"count": len(quotes), "stocks": quotes},
         }
 
     if name == "get_klines":
         source = _optional_source(args.get("source"))
+        asset_class = _optional_asset_class(args.get("asset_class"))
         code = _require_string(args.get("code"), "code")
         period = _optional_period(args.get("period"))
         adjust = _optional_adjust(args.get("adjust"))
         count = _optional_count(args.get("count"))
-        provider = _get_provider(source)
+        provider = _get_provider(source, asset_class)
         options = KlineOptions(period=period, adjust=adjust, count=count)
         klines = await provider.get_klines(code, options)
         return {
@@ -243,26 +275,29 @@ async def _execute_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
                 "count": options.count,
                 "adjust": options.adjust.value,
                 "source": source,
+                "asset_class": asset_class.value,
             },
             "response": {"count": len(klines), "klines": klines},
         }
 
     if name == "search_stocks":
         source = _optional_source(args.get("source"))
+        asset_class = _optional_asset_class(args.get("asset_class"))
         query = _require_string(args.get("query"), "query")
-        provider = _get_provider(source)
+        provider = _get_provider(source, asset_class)
         symbols = await provider.search_symbols(query)
         return {
-            "input": {"query": query, "source": source},
+            "input": {"query": query, "source": source, "asset_class": asset_class.value},
             "response": {"count": len(symbols), "stocks": symbols},
         }
 
     if name == "inspect_stock":
         source = _optional_source(args.get("source"))
+        asset_class = _optional_asset_class(args.get("asset_class"))
         code = _require_string(args.get("code"), "code")
-        provider = _get_provider(source)
+        provider = _get_provider(source, asset_class)
         inspection = await provider.inspect(code)
-        return {"input": {"code": code, "source": source}, "response": {"inspection": inspection}}
+        return {"input": {"code": code, "source": source, "asset_class": asset_class.value}, "response": {"inspection": inspection}}
 
     raise ValueError(f"Unknown tool: {name}")
 

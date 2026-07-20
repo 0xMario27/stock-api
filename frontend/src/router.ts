@@ -6,7 +6,7 @@ export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "watchlist", component: WatchlistView },
-    { path: "/stock/:code", name: "detail", component: DetailView, props: true },
-    { path: "/inspect/:code", name: "inspect", component: () => import("@/views/InspectView.vue"), props: true },
+    { path: "/stock/:code", name: "detail", component: DetailView, props: (route) => ({ code: route.params.code as string, assetClass: (route.query.asset_class as string) || "stock" }) },
+    { path: "/inspect/:code", name: "inspect", component: () => import("@/views/InspectView.vue"), props: (route) => ({ code: route.params.code as string, assetClass: (route.query.asset_class as string) || "stock" }) },
   ],
 });

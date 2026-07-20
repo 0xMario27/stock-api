@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -53,23 +54,33 @@ async def fetch_bytes(
     timeout: float | None = None,
     retries: int = DEFAULT_RETRIES,
 ) -> bytes:
-    """GET 请求，返回原始 bytes（不解码，交给 encoding 模块）。"""
+    """GET 请求，返回原始 bytes（不解码，交给 encoding 模块）。
+
+    对 429 限流做指数退避重试。
+    """
     client = _get_client()
     last_error: Exception | None = None
 
-    for _ in range(retries + 1):
+    for attempt in range(retries + 1):
         try:
             response = await client.get(
                 url,
                 headers=headers,
                 timeout=timeout if timeout is not None else DEFAULT_TIMEOUT,
             )
+            if response.status_code == 429:
+                # 限流：指数退避（0.5s, 1s, 2s...）
+                wait = 0.5 * (2 ** attempt)
+                await asyncio.sleep(wait)
+                last_error = StockRequestError(f"Rate limited (429), retrying after {wait}s")
+                continue
             if response.status_code >= 400:
                 raise StockRequestError(f"Request failed with status {response.status_code}")
             return response.content
-        except httpx.TimeoutException as error:
-            last_error = StockRequestError(f"Request timed out after {timeout or DEFAULT_TIMEOUT}s")
-            _ = error
+        except httpx.TimeoutException:
+            last_error = StockRequestError(
+                f"Request timed out after {timeout or DEFAULT_TIMEOUT}s"
+            )
         except httpx.HTTPError as error:
             last_error = StockRequestError(str(error))
 

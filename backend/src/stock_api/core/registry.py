@@ -149,18 +149,21 @@ def _normalize_codes(codes: list[str]) -> list[str]:
 
 
 def create_default_registry() -> ProviderRegistry:
-    """创建默认注册表，注册股票三大数据源。
+    """创建默认注册表，注册股票三大数据源 + 加密货币数据源。
 
-    二期接入 crypto 时，在此处追加 crypto providers 即可，
+    二期接入更多 crypto 数据源时（如 Binance），在此处追加注册即可，
     或单独提供 register_crypto_providers(registry) 函数。
     """
+    from stock_api.providers.crypto import CoinGeckoProvider
     from stock_api.providers.eastmoney import EastmoneyProvider
     from stock_api.providers.sina import SinaProvider
     from stock_api.providers.tencent import TencentProvider
 
     registry = ProviderRegistry()
-    # 顺序即 auto 兜底顺序：tencent -> sina -> eastmoney
+    # 股票数据源：auto 兜底顺序 tencent -> sina -> eastmoney
     registry.register(TencentProvider())
     registry.register(SinaProvider())
     registry.register(EastmoneyProvider())
+    # 加密货币数据源：auto 兜底顺序 coingecko（后续可追加 Binance 等）
+    registry.register(CoinGeckoProvider())
     return registry

@@ -30,8 +30,15 @@ function formatPercent(percent: number): string {
   return `${(percent * 100).toFixed(2)}%`;
 }
 
+function formatPrice(price: number): string {
+  if (price >= 1000) return price.toFixed(2);
+  if (price >= 1) return price.toFixed(3);
+  if (price >= 0.01) return price.toFixed(5);
+  return price.toFixed(8);
+}
+
 function viewDetail(code: string): void {
-  router.push(`/stock/${code}`);
+  router.push(`/stock/${code}?asset_class=${store.assetClass}`);
 }
 
 async function doSearch(): Promise<void> {
@@ -42,7 +49,7 @@ async function doSearch(): Promise<void> {
   }
   searching.value = true;
   try {
-    searchResults.value = await searchSymbols(query, store.source);
+    searchResults.value = await searchSymbols(query, store.source, store.assetClass);
   } catch (e) {
     ElMessage.error("搜索失败：" + (e instanceof Error ? e.message : String(e)));
     searchResults.value = [];
@@ -131,9 +138,9 @@ onMounted(() => {
       >
         <el-table-column prop="code" label="代码" width="120" />
         <el-table-column prop="name" label="名称" min-width="160" />
-        <el-table-column prop="now" label="最新价" width="100" align="right">
+        <el-table-column prop="now" label="最新价" width="110" align="right">
           <template #default="{ row }">
-            {{ row.now.toFixed(3) }}
+            {{ formatPrice(row.now) }}
           </template>
         </el-table-column>
         <el-table-column prop="percent" label="涨跌幅" width="110" align="right">
@@ -141,14 +148,14 @@ onMounted(() => {
             <span :class="percentClass(row.percent)">{{ formatPercent(row.percent) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="high" label="最高" width="90" align="right">
-          <template #default="{ row }">{{ row.high.toFixed(3) }}</template>
+        <el-table-column prop="high" label="最高" width="100" align="right">
+          <template #default="{ row }">{{ formatPrice(row.high) }}</template>
         </el-table-column>
-        <el-table-column prop="low" label="最低" width="90" align="right">
-          <template #default="{ row }">{{ row.low.toFixed(3) }}</template>
+        <el-table-column prop="low" label="最低" width="100" align="right">
+          <template #default="{ row }">{{ formatPrice(row.low) }}</template>
         </el-table-column>
-        <el-table-column prop="yesterday" label="昨收" width="90" align="right">
-          <template #default="{ row }">{{ row.yesterday.toFixed(3) }}</template>
+        <el-table-column prop="yesterday" label="昨收" width="100" align="right">
+          <template #default="{ row }">{{ formatPrice(row.yesterday) }}</template>
         </el-table-column>
         <el-table-column prop="source" label="数据源" width="100">
           <template #default="{ row }">
