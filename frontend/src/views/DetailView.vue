@@ -18,6 +18,7 @@ const source = ref<SourceName>("auto");
 const chartContainer = ref<HTMLDivElement | null>(null);
 let chart: echarts.ECharts | null = null;
 let refreshTimer: number | null = null;
+let themeObserver: MutationObserver | null = null;
 
 const isCrypto = computed(() => props.assetClass === "crypto");
 
@@ -78,21 +79,23 @@ function renderChart(): void {
   const dates = klines.value.map((k) => k.date);
   const volumes = klines.value.map((k) => k.volume ?? 0);
 
-  // 从 CSS 变量获取涨跌色
+  // 从 CSS 变量获取主题色
   const style = getComputedStyle(document.documentElement);
   const upColor = style.getPropertyValue("--color-up").trim() || "#EF4444";
   const downColor = style.getPropertyValue("--color-down").trim() || "#26A69A";
   const borderColor = style.getPropertyValue("--color-border").trim() || "#334155";
   const fgSecondary = style.getPropertyValue("--color-fg-secondary").trim() || "#94A3B8";
+  const gridColor = style.getPropertyValue("--chart-grid").trim() || "rgba(51,65,85,0.3)";
+  const tooltipBg = style.getPropertyValue("--chart-tooltip-bg").trim() || "rgba(15,23,42,0.95)";
 
   chart.setOption({
     backgroundColor: "transparent",
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "cross", lineStyle: { color: borderColor } },
-      backgroundColor: "rgba(15, 23, 42, 0.95)",
+      backgroundColor: tooltipBg,
       borderColor: borderColor,
-      textStyle: { color: "#F8FAFC", fontFamily: "var(--font-mono)" },
+      textStyle: { color: style.getPropertyValue("--color-fg").trim() || "#F8FAFC", fontFamily: "var(--font-mono)" },
     },
     grid: [
       { left: "6%", right: "3%", top: "4%", height: "62%" },
@@ -125,7 +128,7 @@ function renderChart(): void {
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: { color: fgSecondary, fontSize: 10 },
-        splitLine: { lineStyle: { color: "rgba(51, 65, 85, 0.3)" } },
+        splitLine: { lineStyle: { color: gridColor } },
       },
       {
         gridIndex: 1,
@@ -211,11 +214,19 @@ onMounted(() => {
   loadKlines();
   startAutoRefresh();
   window.addEventListener("resize", handleResize);
+  // 监听 data-theme 变化，切换主题时重绘 ECharts
+  themeObserver = new MutationObserver(() => renderChart());
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "data-color-rule"],
+  });
 });
 
 onBeforeUnmount(() => {
   stopAutoRefresh();
   window.removeEventListener("resize", handleResize);
+  themeObserver?.disconnect();
+  themeObserver = null;
   chart?.dispose();
   chart = null;
 });

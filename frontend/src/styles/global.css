@@ -45,10 +45,8 @@ a {
   background: var(--color-fg-muted);
 }
 
-/* === Element Plus 暗色覆盖 === */
-html.dark {
-  color-scheme: dark;
-}
+/* === Element Plus 主题跟随 === */
+/* Element Plus 暗色 CSS 变量在 html.dark 时生效，由 App.vue 切换 */
 
 /* 卡片 */
 .el-card {

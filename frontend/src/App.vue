@@ -1,12 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref } from "vue";
 import { useStockStore } from "@/stores/stock";
 
 const store = useStockStore();
 const colorRule = ref(localStorage.getItem("stock-api-py:color-rule") || "asia");
+const theme = ref<"light" | "dark">(
+  (localStorage.getItem("stock-api-py:theme") as "light" | "dark") || "dark"
+);
+
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", theme.value);
+  document.documentElement.classList.toggle("dark", theme.value === "dark");
+}
 
 function applyColorRule() {
   document.documentElement.setAttribute("data-color-rule", colorRule.value);
+}
+
+function toggleTheme() {
+  theme.value = theme.value === "dark" ? "light" : "dark";
+  localStorage.setItem("stock-api-py:theme", theme.value);
+  applyTheme();
 }
 
 function toggleColorRule() {
@@ -16,7 +30,7 @@ function toggleColorRule() {
 }
 
 onMounted(() => {
-  document.documentElement.classList.add("dark");
+  applyTheme();
   applyColorRule();
   store.refresh();
 });
@@ -72,7 +86,19 @@ onMounted(() => {
             <option value="coingecko">CoinGecko</option>
           </select>
 
-          <button class="color-toggle" @click="toggleColorRule" title="切换涨跌颜色">
+          <button class="ui-icon-btn" @click="toggleTheme" :title="theme === 'dark' ? '切换到浅色' : '切换到深色'">
+            <!-- 太阳（浅色模式时显示，点击切回深色） -->
+            <svg v-if="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <!-- 月亮（深色模式时显示，点击切到浅色） -->
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          </button>
+
+          <button class="ui-icon-btn" @click="toggleColorRule" title="切换涨跌颜色">
             <span class="color-dot color-up-dot"></span>
             <span class="color-dot color-down-dot"></span>
           </button>
@@ -101,6 +127,7 @@ onMounted(() => {
   top: 0;
   z-index: 100;
   backdrop-filter: blur(12px);
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .header-inner {
@@ -122,11 +149,13 @@ onMounted(() => {
   font-weight: 700;
   font-size: 16px;
   letter-spacing: -0.02em;
+  transition: color var(--transition-normal);
 }
 
 .brand-icon {
   color: var(--color-primary);
-  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.3));
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+  transition: color var(--transition-normal);
 }
 
 .brand-text {
@@ -139,7 +168,7 @@ onMounted(() => {
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--color-primary);
-  color: var(--color-bg);
+  color: #FFFFFF;
   letter-spacing: 0.05em;
   line-height: 1.4;
 }
@@ -154,27 +183,8 @@ onMounted(() => {
   width: 130px;
 }
 
-.color-toggle {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  cursor: pointer;
-  transition: border-color var(--transition-fast);
-  min-width: 44px;
-  min-height: 44px;
-  justify-content: center;
-  align-items: center;
-}
-
-.color-toggle:hover {
-  border-color: var(--color-fg-muted);
-}
-
 .color-dot {
+  display: block;
   width: 14px;
   height: 4px;
   border-radius: 2px;
@@ -186,6 +196,7 @@ onMounted(() => {
 
 .color-down-dot {
   background: var(--color-down);
+  margin-top: 3px;
 }
 
 .app-main {
@@ -194,6 +205,7 @@ onMounted(() => {
   width: 100%;
   margin: 0 auto;
   padding: var(--space-6);
+  transition: background var(--transition-normal);
 }
 
 @media (max-width: 640px) {
@@ -203,7 +215,7 @@ onMounted(() => {
   .brand-text {
     display: none;
   }
-  .source-select {
+  .header-select {
     width: 100px;
   }
 }
