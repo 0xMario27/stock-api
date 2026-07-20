@@ -124,9 +124,12 @@ onBeforeUnmount(() => {
             </svg>
           </template>
         </el-input>
-        <el-button type="primary" size="large" :loading="searching" @click="doSearch">
-          搜索
-        </el-button>
+        <button class="ui-btn ui-btn-primary ui-btn-lg" :disabled="searching" @click="doSearch">
+          <svg v-if="searching" class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          {{ searching ? "搜索中" : "搜索" }}
+        </button>
       </div>
 
       <div v-if="searchResults.length > 0" class="search-results">
@@ -147,15 +150,15 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 自选列表 -->
-    <div class="card">
-      <div class="card-header">
+    <div class="ui-card">
+      <div class="ui-card-header">
         <div class="card-title">
           <span>自选列表</span>
           <span class="card-count">{{ store.watchlist.length }}</span>
         </div>
         <div class="card-actions">
           <span class="auto-refresh-hint">每 30s 自动刷新</span>
-          <button class="btn-refresh" @click="store.refresh().then(updatePrevPrices)" :disabled="store.loading">
+          <button class="ui-icon-btn" @click="store.refresh().then(updatePrevPrices)" :disabled="store.loading">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10" />
               <polyline points="1 20 1 14 7 14" />
@@ -216,7 +219,7 @@ onBeforeUnmount(() => {
               <td class="col-high ta-right text-mono text-secondary">{{ formatPrice(quote.high) }}</td>
               <td class="col-low ta-right text-mono text-secondary">{{ formatPrice(quote.low) }}</td>
               <td class="col-src ta-center">
-                <span class="source-badge">{{ quote.source }}</span>
+                <span class="ui-source-badge">{{ quote.source }}</span>
               </td>
               <td class="col-action ta-center">
                 <button class="btn-remove" @click.stop="store.removeCode(quote.code)" title="删除">
@@ -319,23 +322,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.05em;
 }
 
-/* 卡片 */
-.card {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
+/* 卡片标题（卡片本身用 .ui-card 共享类） */
 .card-title {
   display: flex;
   align-items: center;
@@ -362,30 +349,6 @@ onBeforeUnmount(() => {
 .auto-refresh-hint {
   font-size: 11px;
   color: var(--color-fg-muted);
-}
-
-.btn-refresh {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  cursor: pointer;
-  color: var(--color-fg-secondary);
-  transition: all var(--transition-fast);
-}
-
-.btn-refresh:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.btn-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .error-alert {
@@ -451,14 +414,7 @@ onBeforeUnmount(() => {
 .col-code { font-weight: 600; }
 .col-pct { font-weight: 600; }
 
-.source-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  color: var(--color-fg-secondary);
-}
+/* 数据源标签用共享 .ui-source-badge */
 
 .btn-remove {
   display: inline-flex;

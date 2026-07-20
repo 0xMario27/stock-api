@@ -45,7 +45,7 @@ onMounted(() => loadInspection());
 <template>
   <div class="inspect-view" v-loading="loading">
     <div class="back-bar">
-      <button class="btn-back" @click="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)">
+      <button class="ui-back" @click="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
@@ -53,14 +53,14 @@ onMounted(() => loadInspection());
       </button>
     </div>
 
-    <div v-if="inspection" class="card">
-      <div class="card-header">
+    <div v-if="inspection" class="ui-card">
+      <div class="ui-card-header">
         <div class="header-title">
           <span class="code text-mono">{{ inspection.code }}</span>
           <span class="header-separator">·</span>
           <span>数据源诊断</span>
         </div>
-        <button class="btn-refresh" @click="loadInspection" :disabled="loading">
+        <button class="ui-btn" @click="loadInspection" :disabled="loading">
           重新诊断
         </button>
       </div>
@@ -69,7 +69,7 @@ onMounted(() => loadInspection());
       <div class="result-section">
         <div class="result-label">最终结果来源</div>
         <div class="result-value">
-          <span class="result-source-badge" :class="{ 'source-active': inspection.source !== 'base' }">
+          <span class="ui-badge" :class="{ 'ui-badge-active': inspection.source !== 'base' }">
             {{ inspection.source }}
           </span>
         </div>
@@ -135,41 +135,7 @@ onMounted(() => loadInspection());
   align-items: center;
 }
 
-.btn-back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  cursor: pointer;
-  color: var(--color-fg-secondary);
-  font-size: 13px;
-  transition: all var(--transition-fast);
-  min-height: 36px;
-}
-
-.btn-back:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.card {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border-light);
-}
+/* 卡片/按钮/返回均用共享 .ui-card / .ui-btn / .ui-back */
 
 .header-title {
   display: flex;
@@ -187,23 +153,6 @@ onMounted(() => loadInspection());
   color: var(--color-fg-muted);
 }
 
-.btn-refresh {
-  padding: 6px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-fg-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  min-height: 32px;
-}
-
-.btn-refresh:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
 /* 最终结果 */
 .result-section {
   display: flex;
@@ -219,18 +168,12 @@ onMounted(() => loadInspection());
   letter-spacing: 0.05em;
 }
 
-.result-source-badge {
+/* 结果徽章用共享 .ui-badge / .ui-badge-active */
+.result-value .ui-badge {
   font-size: 13px;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: var(--radius-md);
-  background: var(--color-muted);
-  color: var(--color-fg-secondary);
-}
-
-.source-active {
-  background: var(--color-primary);
-  color: var(--color-bg);
 }
 
 .result-quote {

@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
   <div class="detail-view">
     <!-- 返回栏 -->
     <div class="back-bar">
-      <button class="btn-back" @click="router.push('/')">
+      <button class="ui-back" @click="router.push('/')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
@@ -234,11 +234,11 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 行情头部 -->
-    <div v-if="quote" class="quote-header card">
+    <div v-if="quote" class="quote-header ui-card">
       <div class="quote-meta">
         <div class="quote-code text-mono">{{ quote.code }}</div>
         <div class="quote-name">{{ quote.name }}</div>
-        <span class="source-badge">{{ quote.source }}</span>
+        <span class="ui-source-badge">{{ quote.source }}</span>
       </div>
       <div class="quote-price-section">
         <div class="price-main" :class="priceClass(quote.percent)">
@@ -265,41 +265,41 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- K 线图 -->
-    <div class="card kline-card">
+    <div class="ui-card kline-card">
       <div class="kline-header">
         <span class="kline-title">K 线图</span>
         <div class="kline-controls">
-          <div class="control-group">
+          <div class="ui-segmented">
             <button
               v-for="p in (['day','week','month'] as KlinePeriod[])"
               :key="p"
-              :class="['control-btn', { active: period === p }]"
+              :class="['ui-segmented-btn', { active: period === p }]"
               @click="period = p"
             >
               {{ p === 'day' ? '日K' : p === 'week' ? '周K' : '月K' }}
             </button>
           </div>
-          <div v-if="!isCrypto" class="control-group">
+          <div v-if="!isCrypto" class="ui-segmented">
             <button
               v-for="a in (['none','qfq','hfq'] as KlineAdjust[])"
               :key="a"
-              :class="['control-btn', { active: adjust === a }]"
+              :class="['ui-segmented-btn', { active: adjust === a }]"
               @click="adjust = a"
             >
               {{ a === 'none' ? '不复权' : a === 'qfq' ? '前复权' : '后复权' }}
             </button>
           </div>
-          <select v-if="!isCrypto" v-model="source" class="control-select">
+          <select v-if="!isCrypto" v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
             <option value="tencent">腾讯</option>
             <option value="sina">新浪</option>
             <option value="eastmoney">东方财富</option>
           </select>
-          <select v-else v-model="source" class="control-select">
+          <select v-else v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
             <option value="coingecko">CoinGecko</option>
           </select>
-          <button class="control-btn" @click="goInspect">
+          <button class="ui-btn" @click="goInspect">
             诊断
           </button>
         </div>
@@ -321,39 +321,10 @@ onBeforeUnmount(() => {
   gap: var(--space-4);
 }
 
-/* 返回栏 */
+/* 返回栏（按钮用共享 .ui-back） */
 .back-bar {
   display: flex;
   align-items: center;
-}
-
-.btn-back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 6px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  cursor: pointer;
-  color: var(--color-fg-secondary);
-  font-size: 13px;
-  transition: all var(--transition-fast);
-  min-height: 36px;
-}
-
-.btn-back:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-/* 卡片通用 */
-.card {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
 }
 
 /* 行情头部 */
@@ -383,15 +354,9 @@ onBeforeUnmount(() => {
   color: var(--color-fg-secondary);
 }
 
-.source-badge {
-  display: inline-block;
+/* 数据源标签用共享 .ui-source-badge，此处仅加 margin */
+.quote-meta .ui-source-badge {
   width: fit-content;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  color: var(--color-fg-secondary);
   margin-top: 4px;
 }
 
@@ -469,60 +434,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.control-group {
-  display: inline-flex;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.control-btn {
-  padding: 6px 12px;
-  border: none;
-  background: var(--color-bg);
-  color: var(--color-fg-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  min-height: 32px;
-  border-right: 1px solid var(--color-border);
-}
-
-.control-group .control-btn:last-child {
-  border-right: none;
-}
-
-.control-btn:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-fg);
-}
-
-.control-btn.active {
-  background: var(--color-primary);
-  color: var(--color-bg);
-  font-weight: 600;
-}
-
-.control-select {
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-fg);
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--transition-fast);
-  min-height: 32px;
-}
-
-.control-select:hover {
-  border-color: var(--color-fg-muted);
-}
-
-.control-select:focus {
-  border-color: var(--color-primary);
-}
+/* 选项卡/下拉框/按钮均用共享 .ui-segmented / .ui-select / .ui-btn */
 
 /* 图表区 */
 .chart-area {
@@ -566,7 +478,7 @@ onBeforeUnmount(() => {
   .kline-controls {
     width: 100%;
   }
-  .control-select {
+  .ui-select {
     flex: 1;
   }
   .chart-container {

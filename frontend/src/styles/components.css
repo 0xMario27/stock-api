@@ -1,0 +1,218 @@
+/* 共享 UI 组件样式 - 所有页面统一的交互元素 */
+
+/* === Segmented Control（分段选项卡） === */
+.ui-segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.ui-segmented-btn {
+  padding: 6px 14px;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-fg-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 32px;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}
+
+.ui-segmented-btn:last-child {
+  border-right: none;
+}
+
+.ui-segmented-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-fg);
+}
+
+.ui-segmented-btn.active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+
+/* === Select（下拉框） === */
+.ui-select {
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  color: var(--color-fg);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  min-height: 32px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.ui-select:hover {
+  border-color: var(--color-fg-muted);
+}
+
+.ui-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.ui-select option {
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+}
+
+/* === Button（按钮） === */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-fg-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.ui-btn:hover:not(:disabled) {
+  border-color: var(--color-fg-muted);
+  color: var(--color-fg);
+  background: var(--color-bg-hover);
+}
+
+.ui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-btn-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg);
+  font-weight: 600;
+}
+
+.ui-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-bg);
+}
+
+.ui-btn-lg {
+  padding: 8px 18px;
+  min-height: 40px;
+  font-size: 13px;
+}
+
+/* === Icon Button（图标按钮） === */
+.ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  cursor: pointer;
+  color: var(--color-fg-secondary);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.ui-icon-btn:hover:not(:disabled) {
+  border-color: var(--color-fg-muted);
+  color: var(--color-fg);
+}
+
+.ui-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* === Back Button（返回按钮） === */
+.ui-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  color: var(--color-fg-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  min-height: 36px;
+}
+
+.ui-back:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* === Badge（徽章） === */
+.ui-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  color: var(--color-fg-secondary);
+  letter-spacing: 0.02em;
+}
+
+.ui-badge-active {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+/* === Source Badge（数据源标签） === */
+.ui-source-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  color: var(--color-fg-secondary);
+  white-space: nowrap;
+}
+
+/* === Card（卡片） === */
+.ui-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.ui-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
+}

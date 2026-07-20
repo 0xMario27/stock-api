@@ -36,37 +36,41 @@ onMounted(() => {
         </router-link>
 
         <div class="header-controls">
-          <el-radio-group
-            :model-value="store.assetClass"
-            @update:model-value="store.setAssetClass($event as any)"
-            size="small"
-          >
-            <el-radio-button label="stock">股票</el-radio-button>
-            <el-radio-button label="crypto">加密货币</el-radio-button>
-          </el-radio-group>
+          <div class="ui-segmented">
+            <button
+              :class="['ui-segmented-btn', { active: store.assetClass === 'stock' }]"
+              @click="store.setAssetClass('stock')"
+            >
+              股票
+            </button>
+            <button
+              :class="['ui-segmented-btn', { active: store.assetClass === 'crypto' }]"
+              @click="store.setAssetClass('crypto')"
+            >
+              加密货币
+            </button>
+          </div>
 
-          <el-select
+          <select
             v-if="store.assetClass === 'stock'"
-            :model-value="store.source"
-            @update:model-value="store.setSource($event as any)"
-            size="small"
-            class="source-select"
+            :value="store.source"
+            @change="store.setSource(($event.target as HTMLSelectElement).value as any)"
+            class="ui-select header-select"
           >
-            <el-option label="自动兜底" value="auto" />
-            <el-option label="腾讯" value="tencent" />
-            <el-option label="新浪" value="sina" />
-            <el-option label="东方财富" value="eastmoney" />
-          </el-select>
-          <el-select
+            <option value="auto">自动兜底</option>
+            <option value="tencent">腾讯</option>
+            <option value="sina">新浪</option>
+            <option value="eastmoney">东方财富</option>
+          </select>
+          <select
             v-else
-            :model-value="store.source"
-            @update:model-value="store.setSource($event as any)"
-            size="small"
-            class="source-select"
+            :value="store.source"
+            @change="store.setSource(($event.target as HTMLSelectElement).value as any)"
+            class="ui-select header-select"
           >
-            <el-option label="自动兜底" value="auto" />
-            <el-option label="CoinGecko" value="coingecko" />
-          </el-select>
+            <option value="auto">自动兜底</option>
+            <option value="coingecko">CoinGecko</option>
+          </select>
 
           <button class="color-toggle" @click="toggleColorRule" title="切换涨跌颜色">
             <span class="color-dot color-up-dot"></span>
@@ -146,7 +150,7 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
-.source-select {
+.header-select {
   width: 130px;
 }
 

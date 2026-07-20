@@ -1,6 +1,7 @@
 /* 全局样式 + Element Plus 暗色主题覆盖 */
 
 @import './variables.css';
+@import './components.css';
 
 /* === Reset === */
 *, *::before, *::after {
@@ -236,6 +237,14 @@ html.dark {
 
 .flash-down {
   animation: flash-down 1s ease-out;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
 }
 
 /* 骨架屏 */
