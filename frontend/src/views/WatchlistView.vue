@@ -119,6 +119,41 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="watchlist-view">
+    <!-- 页面工具栏 -->
+    <div class="page-toolbar">
+      <div class="ui-segmented">
+        <button
+          :class="['ui-segmented-btn', { active: store.assetClass === 'stock' }]"
+          @click="store.setAssetClass('stock')"
+        >股票</button>
+        <button
+          :class="['ui-segmented-btn', { active: store.assetClass === 'crypto' }]"
+          @click="store.setAssetClass('crypto')"
+        >加密货币</button>
+      </div>
+      <select
+        v-if="store.assetClass === 'stock'"
+        :value="store.source"
+        @change="store.setSource(($event.target as HTMLSelectElement).value as any)"
+        class="ui-select"
+      >
+        <option value="auto">自动兜底</option>
+        <option value="tencent">腾讯</option>
+        <option value="sina">新浪</option>
+        <option value="eastmoney">东方财富</option>
+      </select>
+      <select
+        v-else
+        :value="store.source"
+        @change="store.setSource(($event.target as HTMLSelectElement).value as any)"
+        class="ui-select"
+      >
+        <option value="auto">自动兜底</option>
+        <option value="coingecko">CoinGecko</option>
+        <option value="binance">Binance</option>
+      </select>
+    </div>
+
     <!-- 搜索栏 -->
     <div class="search-section">
       <div class="search-row">
@@ -286,6 +321,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* 页面工具栏 */
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 /* 搜索区 */

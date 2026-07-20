@@ -149,6 +149,10 @@ function handleResize(): void {
   chartInstances.forEach((chart) => chart.resize());
 }
 
+function handleRefresh(): void {
+  store.refreshDash().then(() => window.setTimeout(renderAllSparklines, 100));
+}
+
 onMounted(async () => {
   await store.refreshDash();
   setTimeout(renderAllSparklines, 100);
@@ -166,6 +170,23 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="dash-view" v-loading="store.dashLoading">
+    <!-- 页面工具栏 -->
+    <div class="page-toolbar">
+      <div class="toolbar-left">
+        <span class="toolbar-title">Dashboard</span>
+        <span class="toolbar-count">{{ store.dashItems.length }} 个标的</span>
+      </div>
+      <div class="toolbar-right">
+        <span class="auto-refresh-hint">每 30s 自动刷新</span>
+        <button class="ui-icon-btn" @click="handleRefresh" :disabled="store.dashLoading" title="刷新">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <!-- 概览统计栏 -->
     <div v-if="stats" class="stats-bar">
       <div class="stat-block">
@@ -262,13 +283,24 @@ onBeforeUnmount(() => {
       </svg>
       <p>Dashboard 还没有卡片</p>
       <p class="dash-empty-hint">在自选列表中点击「加入 Dashboard」按钮添加</p>
-      <button class="ui-btn ui-btn-primary" style="margin-top: 12px" @click="router.push('/')">前往自选列表</button>
+      <button class="ui-btn ui-btn-primary" style="margin-top: 12px" @click="router.push('/watchlist')">前往自选列表</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .dash-view { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* 页面工具栏 */
+.page-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--space-2);
+}
+.toolbar-left { display: flex; align-items: center; gap: var(--space-3); }
+.toolbar-right { display: flex; align-items: center; gap: var(--space-3); }
+.toolbar-title { font-size: 18px; font-weight: 700; color: var(--color-fg); }
+.toolbar-count { font-size: 12px; color: var(--color-fg-muted); }
+.auto-refresh-hint { font-size: 11px; color: var(--color-fg-muted); }
 
 /* 概览统计栏 */
 .stats-bar {
