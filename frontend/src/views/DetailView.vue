@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import * as echarts from "echarts";
 import { getKlines, getQuote } from "@/api";
 import type { AssetClass, Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
-import { buildChartOption, type IndicatorState, type ChartColors } from "@/utils/chartBuilder";
+import { TVChartManager, type IndicatorState, type ChartColors } from "@/utils/tvChart";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
@@ -17,23 +16,23 @@ const adjust = ref<KlineAdjust>("none");
 const source = ref<SourceName>("auto");
 const indicators = ref<IndicatorState>({ ma: true, boll: false, vwap: false, vol: true, macd: false, kdj: false, rsi: false });
 const chartContainer = ref<HTMLDivElement | null>(null);
-let chart: echarts.ECharts | null = null;
+let tvChart: TVChartManager | null = null;
 let refreshTimer: number | null = null;
 let themeObserver: MutationObserver | null = null;
 
 const isCrypto = computed(() => props.assetClass === "crypto");
 const changeAmount = computed(() => quote.value ? quote.value.now - quote.value.yesterday : 0);
 const subCount = computed(() => (indicators.value.vol?1:0)+(indicators.value.macd?1:0)+(indicators.value.kdj?1:0)+(indicators.value.rsi?1:0));
-const chartHeight = computed(() => 360 + subCount.value * 90);
+const chartHeight = computed(() => 400 + subCount.value * 100);
 
 const indicatorList = [
-  { key: "ma" as const, label: "MA", group: "main" },
-  { key: "boll" as const, label: "BOLL", group: "main" },
-  { key: "vwap" as const, label: "VWAP", group: "main" },
-  { key: "vol" as const, label: "VOL", group: "sub" },
-  { key: "macd" as const, label: "MACD", group: "sub" },
-  { key: "kdj" as const, label: "KDJ", group: "sub" },
-  { key: "rsi" as const, label: "RSI", group: "sub" },
+  { key: "ma" as const, label: "MA" },
+  { key: "boll" as const, label: "BOLL" },
+  { key: "vwap" as const, label: "VWAP" },
+  { key: "vol" as const, label: "VOL" },
+  { key: "macd" as const, label: "MACD" },
+  { key: "kdj" as const, label: "KDJ" },
+  { key: "rsi" as const, label: "RSI" },
 ];
 
 function formatPrice(p: number): string {
@@ -51,7 +50,8 @@ async function loadKlines() {
   klineLoading.value = true;
   try {
     klines.value = await getKlines(props.code, { period: period.value, adjust: adjust.value, count: 120, source: source.value }, props.assetClass);
-    await nextTick(); renderChart();
+    await nextTick();
+    if (tvChart) tvChart.setData(klines.value);
   } finally { klineLoading.value = false; }
 }
 
@@ -71,37 +71,34 @@ function getColors(): ChartColors {
   };
 }
 
-function renderChart(): void {
-  if (!chartContainer.value) return;
-  if (!chart) chart = echarts.init(chartContainer.value, undefined, { renderer: "canvas" });
-  if (klines.value.length === 0) { chart.clear(); return; }
-  const option = buildChartOption(klines.value, indicators.value, getColors(), chartHeight.value);
-  chart.setOption(option, true);
-}
-
 function toggleIndicator(key: keyof IndicatorState) {
   indicators.value[key] = !indicators.value[key];
-  nextTick(() => { chart?.resize(); renderChart(); });
+  if (tvChart) tvChart.updateIndicators(indicators.value);
 }
 
 function startAutoRefresh() { stopAutoRefresh(); refreshTimer = window.setInterval(() => loadQuote(), 15000); }
 function stopAutoRefresh() { if (refreshTimer !== null) { clearInterval(refreshTimer); refreshTimer = null; } }
-function handleResize() { chart?.resize(); }
 function goInspect() { router.push("/inspect/" + props.code + "?asset_class=" + props.assetClass); }
 
 watch(() => props.code, () => { loadQuote(); loadKlines(); });
 watch([period, adjust, source], () => loadKlines());
 
 onMounted(() => {
-  loadQuote(); loadKlines(); startAutoRefresh();
-  window.addEventListener("resize", handleResize);
-  themeObserver = new MutationObserver(() => renderChart());
+  if (chartContainer.value) {
+    tvChart = new TVChartManager(indicators.value, getColors());
+    tvChart.mount(chartContainer.value);
+  }
+  loadQuote();
+  loadKlines();
+  startAutoRefresh();
+  themeObserver = new MutationObserver(() => { if (tvChart) tvChart.updateColors(getColors()); });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-color-rule"] });
 });
+
 onBeforeUnmount(() => {
-  stopAutoRefresh(); window.removeEventListener("resize", handleResize);
+  stopAutoRefresh();
   themeObserver?.disconnect(); themeObserver = null;
-  chart?.dispose(); chart = null;
+  tvChart?.destroy(); tvChart = null;
 });
 </script>
 
@@ -180,7 +177,11 @@ onBeforeUnmount(() => {
 
       <!-- 图表 -->
       <div v-loading="klineLoading" class="chart-area">
-        <div ref="chartContainer" class="chart-container" :style="{ height: chartHeight + 'px' }"></div>
+        <div
+          ref="chartContainer"
+          class="chart-container"
+          :style="{ height: chartHeight + 'px' }"
+        ></div>
         <div v-if="!klineLoading && klines.length === 0" class="chart-empty">无 K 线数据</div>
       </div>
     </div>
@@ -236,12 +237,9 @@ onBeforeUnmount(() => {
   font-family: var(--font-sans);
 }
 .ind-btn:hover { border-color: var(--color-fg-muted); color: var(--color-fg); }
-.ind-btn.active {
-  background: var(--color-primary); border-color: var(--color-primary);
-  color: #fff;
-}
+.ind-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
 
-.chart-area { position: relative; padding: var(--space-2); min-height: 400px; }
+.chart-area { position: relative; padding: var(--space-2); min-height: 420px; }
 .chart-container { width: 100%; }
 .chart-empty {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
