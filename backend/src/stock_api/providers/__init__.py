@@ -4,6 +4,7 @@ from stock_api.providers.crypto import BinanceProvider, CoinGeckoProvider
 from stock_api.providers.eastmoney import EastmoneyProvider
 from stock_api.providers.sina import SinaProvider
 from stock_api.providers.tencent import TencentProvider
+from stock_api.providers.yahoo import YahooProvider
 
 __all__ = [
     "BinanceProvider",
@@ -11,4 +12,5 @@ __all__ = [
     "EastmoneyProvider",
     "SinaProvider",
     "TencentProvider",
+    "YahooProvider",
 ]

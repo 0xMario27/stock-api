@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useStockStore } from "@/stores/stock";
 
 const store = useStockStore();
@@ -32,6 +32,7 @@ function toggleColorRule() {
 onMounted(() => {
   applyTheme();
   applyColorRule();
+  store.initRealtime();
 });
 </script>
 
@@ -75,6 +76,10 @@ onMounted(() => {
         </div>
 
         <div class="header-right">
+          <div class="rt-indicator" :class="{ 'rt-on': store.realtimeConnected, 'rt-off': !store.realtimeConnected }">
+            <span class="rt-dot"></span>
+            <span class="rt-label">{{ store.realtimeConnected ? '实时' : '离线' }}</span>
+          </div>
           <button class="ui-icon-btn" @click="toggleTheme" :title="theme === 'dark' ? '切换到浅色' : '切换到深色'">
             <svg v-if="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="4" />
@@ -137,7 +142,25 @@ onMounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+}
+
+.rt-indicator {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--radius-md);
+  font-size: 11px; font-weight: 600;
+}
+.rt-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.rt-on { background: rgba(38, 166, 154, 0.12); color: var(--color-down); }
+.rt-on .rt-dot { background: var(--color-down); animation: pulse 2s infinite; }
+.rt-off { background: var(--color-muted); color: var(--color-fg-muted); }
+.rt-off .rt-dot { background: var(--color-fg-muted); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .brand {

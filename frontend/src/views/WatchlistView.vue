@@ -265,6 +265,7 @@ onBeforeUnmount(() => {
         <option value="tencent">腾讯</option>
         <option value="sina">新浪</option>
         <option value="eastmoney">东方财富</option>
+        <option value="yahoo">Yahoo Finance</option>
       </select>
       <select
         v-else

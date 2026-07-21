@@ -9,19 +9,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from stock_api.api.routes import router
 from stock_api.core.registry import create_default_registry
+from stock_api.realtime.manager import close_pool
+from stock_api.realtime.server import ensure_init
+from stock_api.realtime.server import router as ws_router
 from stock_api.utils.http import close_client
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await ensure_init()
     yield
+    await close_pool()
     await close_client()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="stock-api",
-        description="A 股 / 港股 / 美股行情查询 API，支持腾讯 / 新浪 / 东方财富自动兜底",
+        description="A股 / 港股 / 美股 / 加密货币行情查询 API + WebSocket 实时推送",
         version="2.7.3",
         lifespan=lifespan,
     )
@@ -36,4 +41,5 @@ def create_app() -> FastAPI:
 
     app.state.registry = create_default_registry()
     app.include_router(router, prefix="/api", tags=["stock"])
+    app.include_router(ws_router, tags=["realtime"])
     return app

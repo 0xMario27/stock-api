@@ -178,12 +178,14 @@ def create_default_registry() -> ProviderRegistry:
     from stock_api.providers.eastmoney import EastmoneyProvider
     from stock_api.providers.sina import SinaProvider
     from stock_api.providers.tencent import TencentProvider
+    from stock_api.providers.yahoo import YahooProvider
 
     registry = ProviderRegistry()
-    # 股票数据源：auto 兜底顺序 tencent -> sina -> eastmoney
+    # 股票数据源：auto 兜底顺序 tencent -> sina -> eastmoney -> yahoo
     registry.register(TencentProvider())
     registry.register(SinaProvider())
     registry.register(EastmoneyProvider())
+    registry.register(YahooProvider())
     # 加密货币数据源：auto 兜底顺序 coingecko -> binance
     registry.register(CoinGeckoProvider())
     registry.register(BinanceProvider())

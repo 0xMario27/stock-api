@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { getQuote, getQuotes, getKlines } from "@/api";
+import { getRealtimeClient, type RealtimeClient } from "@/utils/realtime";
 import type { AssetClass, Kline, Quote, SourceName } from "@/types";
 
 const STOCK_KEY = "stock-api-py:watchlist:stock";
@@ -133,6 +134,12 @@ export const useStockStore = defineStore("stock", () => {
         const label = currentClass === "crypto" ? "加密货币" : "股票";
         error.value = `${label}数据源暂时不可用（可能被限流），稍后会自动重试`;
       }
+      // 实时推送：crypto 自动订阅 Binance WS
+      if (currentClass === "crypto") {
+        for (const q of result) {
+          if (q.source !== "base") subscribeRealtime(q.code);
+        }
+      }
     } catch (e) {
       if (generation !== refreshGeneration) return;
       error.value = e instanceof Error ? e.message : String(e);
@@ -245,6 +252,58 @@ export const useStockStore = defineStore("stock", () => {
     }
   }
 
+  // === 实时推送 ===
+  const realtime = ref<RealtimeClient | null>(null);
+  const realtimeConnected = ref(false);
+  const realtimeCodes = ref<Set<string>>(new Set());
+
+  function initRealtime(): void {
+    if (realtime.value) return;
+    const client = getRealtimeClient();
+    client.connect();
+
+    // 每 2 秒检查连接状态
+    setInterval(() => {
+      realtimeConnected.value = client.connected;
+    }, 2000);
+
+    realtime.value = client;
+  }
+
+  function subscribeRealtime(code: string): void {
+    if (!realtime.value) return;
+    if (realtimeCodes.value.has(code)) return;
+    realtimeCodes.value.add(code);
+
+    realtime.value.subscribe(code, (_code, data) => {
+      // 更新 watchlist quotes
+      const idx = quotes.value.findIndex((q) => q.code === code);
+      if (idx >= 0) {
+        quotes.value[idx] = { ...quotes.value[idx], ...data, source: "binance_ws" };
+      }
+      // 更新 dashboard quotes
+      const dashKey = `crypto:${code}`;
+      if (dashKey in dashQuotes.value) {
+        dashQuotes.value[dashKey] = { ...dashQuotes.value[dashKey]!, ...data, source: "binance_ws" };
+      }
+    });
+  }
+
+  function unsubscribeRealtime(code: string): void {
+    if (!realtime.value) return;
+    realtimeCodes.value.delete(code);
+    realtime.value.unsubscribe(code);
+  }
+
+  function disconnectRealtime(): void {
+    if (realtime.value) {
+      realtime.value.disconnect();
+      realtime.value = null;
+    }
+    realtimeCodes.value.clear();
+    realtimeConnected.value = false;
+  }
+
   return {
     assetClass,
     quotes,
@@ -268,5 +327,11 @@ export const useStockStore = defineStore("stock", () => {
     removeFromDash,
     isInDash,
     refreshDash,
+    // Realtime
+    realtimeConnected,
+    initRealtime,
+    subscribeRealtime,
+    unsubscribeRealtime,
+    disconnectRealtime,
   };
 });

@@ -176,6 +176,7 @@ onBeforeUnmount(() => {
             <option value="tencent">腾讯</option>
             <option value="sina">新浪</option>
             <option value="eastmoney">东方财富</option>
+            <option value="yahoo">Yahoo Finance</option>
           </select>
           <select v-else v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
