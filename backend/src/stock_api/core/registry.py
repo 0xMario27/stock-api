@@ -95,8 +95,12 @@ class AutoProvider(DataProvider):
         for provider in self.providers:
             try:
                 quotes = await provider.get_quotes(normalized)
-                # 只要有非默认值结果就采用
+                # 只要有非默认值结果就采用此批
                 if any(q.source != "base" and q.name != "---" for q in quotes):
+                    # 对批量中返回默认值的标的，逐个重试（走 inspect 兜底链）
+                    for i, q in enumerate(quotes):
+                        if q.name == "---" and q.source != "base":
+                            quotes[i] = await self.get_quote(normalized[i])
                     return quotes
             except Exception:
                 continue

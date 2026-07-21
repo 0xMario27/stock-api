@@ -94,6 +94,34 @@ function isValidCode(query: string): boolean {
   return false;
 }
 
+/* 尝试从查询构造候选代码（期货/商品模糊匹配） */
+function tryConstructCodes(query: string): string[] {
+  const u = query.trim().toUpperCase();
+  const candidates: string[] = [];
+
+  // 期货合约模式: IF/IC/IH + 4 位数字 -> 自动加 FUT 前缀
+  if (/^(IF|IC|IH|IM)\d{4}$/.test(u)) {
+    candidates.push("FUT" + u);
+  }
+  // 纯数字 2-4 位 -> 尝试期货前缀
+  if (/^\d{2,4}$/.test(u)) {
+    for (const p of ["IF", "IC", "IH"]) {
+      candidates.push("FUT" + p + u);
+    }
+  }
+  // 大写字母 3-5 位 -> 尝试商品前缀
+  if (/^[A-Z]{3,5}$/.test(u)) {
+    candidates.push("COM" + u);
+  }
+  // 字母+数字 2-6 位 -> 尝试 FUT + COM
+  if (/^[A-Z]{1,4}\d{2,4}$/.test(u) && u.length >= 3) {
+    candidates.push("FUT" + u);
+    candidates.push("COM" + u);
+  }
+
+  return candidates;
+}
+
 async function doSearch(): Promise<void> {
   const query = searchQuery.value.trim();
   if (!query) {
@@ -107,6 +135,15 @@ async function doSearch(): Promise<void> {
     store.refreshOne(query);
     searchQuery.value = "";
     searchResults.value = [];
+    return;
+  }
+
+  // 尝试用候选代码直接匹配（期货/商品模糊搜索）
+  const candidates = tryConstructCodes(query);
+  if (candidates.length > 0) {
+    searchResults.value = candidates
+      .slice(0, 10)
+      .map((code) => ({ code, name: code, market: null, asset_class: store.assetClass }));
     return;
   }
 
