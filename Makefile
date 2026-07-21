@@ -1,4 +1,4 @@
-.PHONY: help install install-dev dev dev-backend dev-frontend build lint lint-fix typecheck check test test-unit docker-build docker-up docker-down docker-logs clean cli mcp
+.PHONY: help install install-dev dev dev-backend dev-frontend build lint lint-fix typecheck check test test-unit docker-build docker-up docker-down docker-rebuild docker-logs clean cli mcp
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -83,7 +83,7 @@ test-unit: ## 运行后端单元测试（带覆盖率）
 docker-build: ## 构建 Docker 镜像
 	docker compose build
 
-docker-up: ## 启动 Docker 容器（后台）
+docker-up: ## 启动 Docker 容器（后台，增量构建）
 	docker compose up -d --build
 	@printf "$(GREEN)✓ 容器已启动$(RESET)\n"
 	@printf "  前端面板: http://localhost:8080\n"
@@ -91,6 +91,14 @@ docker-up: ## 启动 Docker 容器（后台）
 
 docker-down: ## 停止并移除 Docker 容器
 	docker compose down
+
+docker-rebuild: ## 完整重构建并启动（--no-cache，约 2-3 分钟）
+	docker compose down
+	docker compose build --no-cache
+	docker compose up -d
+	@printf "$(GREEN)✓ 重构建完成并已启动$(RESET)\n"
+	@printf "  前端面板: http://localhost:8080\n"
+	@printf "  API 文档: http://localhost:8000/docs\n"
 
 docker-logs: ## 查看容器日志（实时）
 	docker compose logs -f
