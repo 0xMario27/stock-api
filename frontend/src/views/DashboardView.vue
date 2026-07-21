@@ -326,9 +326,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">资产</span>
-              <span :class="['market-badge', card.assetClass === 'crypto' ? 'market-crypto' : 'asset-stock']">
-                {{ card.assetClass === "crypto" ? "加密" : "股票" }}
-              </span>
+              <span class="ui-source-badge">{{ card.assetClass === "crypto" ? "加密" : "股票" }}</span>
             </div>
           </div>
         </div>
