@@ -20,7 +20,6 @@ services:
       - "8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - TZ=Asia/Tokyo
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-3}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     deploy:

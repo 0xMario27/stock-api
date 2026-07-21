@@ -56,13 +56,58 @@ npm run dev
 
 ### Docker 部署
 
+开发环境（端口 8080）：
 ```shell
 docker compose up -d --build
 ```
 
-- 后端 API：http://localhost:8000
-- 前端面板：http://localhost:8080
-- API 文档：http://localhost:8000/docs
+生产环境（端口 8002，gunicorn 多 worker）：
+```shell
+# 可选：创建 .env 调整配置
+cp .env.example .env
+
+# 构建并启动
+make docker-prod
+# 或手动：
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- 前端面板：http://localhost:8002
+- API 文档：http://localhost:8002/api/docs
+
+#### 生产环境配置说明
+
+通过 `.env` 文件或环境变量调整：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `GUNICORN_WORKERS` | 3 | gunicorn worker 进程数，建议 `CPU核心数 * 2 + 1` |
+| `LOG_LEVEL` | info | 日志级别：debug / info / warning / error |
+| `PROD_PORT` | 8002 | 对外暴露的端口 |
+
+获取服务器 CPU 核心数：
+
+```shell
+nproc          # Linux
+sysctl -n hw.ncpu   # macOS
+```
+
+根据 CPU 核心数设置 worker：
+
+| CPU 核心数 | 建议 GUNICORN_WORKERS |
+| --- | --- |
+| 1 | 2 |
+| 2 | 3 |
+| 4 | 5 |
+| 8 | 9 |
+
+示例 `.env` 文件：
+```shell
+# 2 核服务器
+GUNICORN_WORKERS=3
+LOG_LEVEL=info
+PROD_PORT=8002
+```
 
 ## 支持功能
 
