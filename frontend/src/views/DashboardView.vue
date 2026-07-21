@@ -345,6 +345,10 @@ onBeforeUnmount(() => {
               <span class="mini-val text-mono">{{ formatMoney(card.quote.market_cap) }}</span>
             </div>
             <div class="mini-stat">
+              <span class="mini-lbl">市场</span>
+              <MarketBadge :market="card.quote.market" />
+            </div>
+            <div class="mini-stat">
               <span class="mini-lbl">数据源</span>
               <span class="ui-source-badge">{{ card.quote.source }}</span>
             </div>
