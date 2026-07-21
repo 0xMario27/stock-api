@@ -225,6 +225,7 @@ class CoinGeckoProvider(DataProvider):
             market=Market.CRYPTO,
             market_cap=_num_or_none(item.get("market_cap")),
             volume=_num_or_none(item.get("total_volume")),
+            turnover=_num_or_none(item.get("total_volume")),
         )
 
     def _period_to_days(self, period: KlinePeriod, count: int) -> str:
