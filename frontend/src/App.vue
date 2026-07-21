@@ -41,9 +41,15 @@ onMounted(() => {
       <div class="header-inner">
         <div class="header-left">
           <router-link to="/" class="brand">
-            <svg class="brand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-              <polyline points="16 7 22 7 22 13" />
+            <svg class="brand-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M3 18 L8 15 L13 12 L19 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35" fill="none"/>
+              <line x1="7" y1="10" x2="7" y2="19" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+              <rect x="5.5" y="12" width="3" height="5" rx="0.5" fill="currentColor" opacity="0.55"/>
+              <line x1="12" y1="7" x2="12" y2="17" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+              <rect x="10.5" y="9" width="3" height="6" rx="0.5" fill="currentColor"/>
+              <line x1="17" y1="4" x2="17" y2="14" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+              <rect x="15.5" y="6" width="3" height="6" rx="0.5" fill="currentColor"/>
+              <path d="M15.5 7 L19 7 L19 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </svg>
             <span class="brand-text">StockAPI</span>
             <span class="brand-badge">PY</span>
