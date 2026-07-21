@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useStockStore } from "@/stores/stock";
+import { Search, Loader2, RefreshCw, LayoutGrid, X } from "lucide-vue-next";
 import { searchSymbols } from "@/api";
 import type { Symbol as StockSymbol, Quote, Market } from "@/types";
 
@@ -292,16 +293,11 @@ onBeforeUnmount(() => {
           @keyup.enter="doSearch"
         >
           <template #prefix>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-fg-muted)">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <Search :size="16" style="color: var(--color-fg-muted)" />
           </template>
         </el-input>
         <button class="ui-btn ui-btn-primary ui-btn-lg" :disabled="searching" @click="doSearch">
-          <svg v-if="searching" class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
+          <Loader2 v-if="searching" :size="14" class="spin" />
           {{ searching ? "搜索中" : "搜索" }}
         </button>
       </div>
@@ -336,11 +332,7 @@ onBeforeUnmount(() => {
         <div class="card-actions">
           <span class="auto-refresh-hint">每 30s 自动刷新</span>
           <button class="ui-icon-btn" @click="store.refresh().then(updatePrevPrices)" :disabled="store.loading">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
+            <RefreshCw :size="14" :class="{ 'anim-spin': store.loading }" />
           </button>
         </div>
       </div>
@@ -416,16 +408,10 @@ onBeforeUnmount(() => {
                       : store.addToDash(quote.code, store.assetClass)"
                     :title="store.isInDash(quote.code, store.assetClass) ? '从 Dashboard 移除' : '加入 Dashboard'"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                      <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                    </svg>
+                    <LayoutGrid :size="14" />
                   </button>
                   <button class="btn-remove" @click.stop="store.removeCode(quote.code)" title="删除">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <X :size="14" />
                   </button>
                 </div>
               </td>
@@ -436,10 +422,7 @@ onBeforeUnmount(() => {
 
       <!-- 空状态 -->
       <div v-else class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-fg-muted); margin-bottom: 12px">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <Search :size="48" style="color: var(--color-fg-muted); margin-bottom: 12px; opacity: 0.4" />
         <p>还没有自选，搜索并添加{{ store.assetClass === "crypto" ? "加密货币" : "股票" }}</p>
       </div>
     </div>
@@ -754,4 +737,6 @@ onBeforeUnmount(() => {
     padding-right: var(--space-3);
   }
 }
+.anim-spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { inspectStock } from "@/api";
+import { Check, AlertCircle, X, ChevronLeft } from "lucide-vue-next";
 import type { AssetClass, AutoInspection, SourceName } from "@/types";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
@@ -20,17 +21,17 @@ async function loadInspection(): Promise<void> {
   }
 }
 
-function statusIcon(status: string): string {
-  if (status === "success") return "M20 6L9 17l-5-5";
-  if (status === "empty") return "M12 8v4M12 16h.01";
-  return "M18 6L6 18M6 6l12 12";
-}
-
 function statusColor(status: string): string {
   if (status === "success") return "status-success";
   if (status === "empty") return "status-empty";
   return "status-error";
 }
+
+const statusIcon = computed(() => ({
+  success: Check,
+  empty: AlertCircle,
+  error: X,
+}));
 
 function formatPrice(price: number | undefined): string {
   if (price === undefined || price === 0) return "-";
@@ -46,9 +47,7 @@ onMounted(() => loadInspection());
   <div class="inspect-view" v-loading="loading">
     <div class="back-bar">
       <button class="ui-back" @click="router.push(`/stock/${props.code}?asset_class=${props.assetClass}`)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
+        <ChevronLeft :size="16" />
         <span>返回详情</span>
       </button>
     </div>
@@ -105,9 +104,7 @@ onMounted(() => loadInspection());
         >
           <div class="source-info">
             <div :class="['status-icon', statusColor(src.status)]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path :d="statusIcon(src.status)" />
-              </svg>
+              <component :is="statusIcon[src.status as keyof typeof statusIcon]" :size="14" />
             </div>
             <span class="source-name">{{ src.source }}</span>
             <span class="source-status-text" :class="statusColor(src.status)">{{ src.status }}</span>

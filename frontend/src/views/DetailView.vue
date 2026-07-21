@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { getKlines, getQuote } from "@/api";
 import type { AssetClass, Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
 import { TVChartManager, type IndicatorState, type ChartColors } from "@/utils/tvChart";
+import { ChevronLeft } from "lucide-vue-next";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
@@ -129,9 +130,7 @@ onBeforeUnmount(() => {
   <div class="detail-view">
     <div class="back-bar">
       <button class="ui-back" @click="router.push('/watchlist')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
+        <ChevronLeft :size="16" />
         <span>返回列表</span>
       </button>
     </div>

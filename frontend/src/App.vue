@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, ref, computed } from "vue";
 import { useStockStore } from "@/stores/stock";
+import { Moon, Sun, Monitor, LayoutGrid, List, ChevronsUpDown } from "lucide-vue-next";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -37,28 +38,24 @@ function cycleTheme() {
   applyTheme();
 }
 
-function listenSystemTheme() {
-  systemMedia = window.matchMedia("(prefers-color-scheme: dark)");
-  systemMedia.addEventListener("change", () => {
-    if (theme.value === "system") applyTheme();
-  });
-}
-
-const themeIcons: Record<ThemeMode, string> = {
-  dark: "moon",
-  light: "sun",
-  system: "system",
-};
-const themeTitles: Record<ThemeMode, string> = {
-  dark: "深色模式",
-  light: "浅色模式",
-  system: "跟随系统",
-};
+const themeIcon = computed(() =>
+  theme.value === "dark" ? Moon : theme.value === "light" ? Sun : Monitor
+);
+const themeTitle = computed(() =>
+  theme.value === "dark" ? "深色模式" : theme.value === "light" ? "浅色模式" : "跟随系统"
+);
 
 function toggleColorRule() {
   colorRule.value = colorRule.value === "asia" ? "intl" : "asia";
   localStorage.setItem("stock-api-py:color-rule", colorRule.value);
   applyColorRule();
+}
+
+function listenSystemTheme() {
+  systemMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  systemMedia.addEventListener("change", () => {
+    if (theme.value === "system") applyTheme();
+  });
 }
 
 onMounted(() => {
@@ -95,18 +92,11 @@ onBeforeUnmount(() => {
 
           <nav class="nav-links">
             <router-link to="/" class="nav-link" active-class="nav-active">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-              </svg>
+              <LayoutGrid :size="16" />
               <span>Dashboard</span>
             </router-link>
             <router-link to="/watchlist" class="nav-link" active-class="nav-active">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
+              <List :size="16" />
               <span>自选</span>
             </router-link>
           </nav>
@@ -117,18 +107,8 @@ onBeforeUnmount(() => {
             <span class="rt-dot"></span>
             <span class="rt-label">{{ store.realtimeConnected ? '实时' : '离线' }}</span>
           </div>
-          <button class="ui-icon-btn" @click="cycleTheme" :title="themeTitles[theme]">
-            <svg v-if="themeIcons[theme] === 'sun'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-            </svg>
-            <svg v-else-if="themeIcons[theme] === 'moon'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-            </svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
+          <button class="ui-icon-btn" @click="cycleTheme" :title="themeTitle">
+            <component :is="themeIcon" :size="16" />
           </button>
 
           <button class="ui-icon-btn" @click="toggleColorRule" title="切换涨跌颜色">

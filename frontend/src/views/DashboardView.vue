@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useStockStore } from "@/stores/stock";
 import * as echarts from "echarts";
+import { RefreshCw, X, LayoutGrid, GripHorizontal } from "lucide-vue-next";
 import type { Quote, Kline } from "@/types";
 
 const store = useStockStore();
@@ -228,10 +229,7 @@ onBeforeUnmount(() => {
       <div class="toolbar-right">
         <span class="auto-refresh-hint">每 30s 自动刷新</span>
         <button class="ui-icon-btn" @click="handleRefresh" :disabled="store.dashLoading" title="刷新">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
+          <RefreshCw :size="14" :class="{ 'anim-spin': store.dashLoading }" />
         </button>
       </div>
     </div>
@@ -294,9 +292,7 @@ onBeforeUnmount(() => {
             </span>
           </div>
           <button class="card-remove" @click.stop="removeCard(card.code, card.assetClass)" title="移除">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X :size="12" />
           </button>
         </div>
 
@@ -375,19 +371,14 @@ onBeforeUnmount(() => {
           <span>暂无数据</span>
         </div>
         <div class="card-resize-handle" @mousedown.prevent.stop="startResize($event, card.key)" title="拖拽调整宽度">
-          <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" opacity="0.3">
-            <circle cx="6" cy="2" r="0.8"/><circle cx="2" cy="6" r="0.8"/><circle cx="6" cy="6" r="0.8"/>
-          </svg>
+          <GripHorizontal :size="10" />
         </div>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="!store.dashLoading" class="dash-empty">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-fg-muted); margin-bottom: 12px">
-        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-      </svg>
+      <LayoutGrid :size="48" style="color: var(--color-fg-muted); margin-bottom: 12px; opacity: 0.4" />
       <p>Dashboard 还没有卡片</p>
       <p class="dash-empty-hint">在自选列表中点击「加入 Dashboard」按钮添加</p>
       <button class="ui-btn ui-btn-primary" style="margin-top: 12px" @click="router.push('/watchlist')">前往自选列表</button>
@@ -512,6 +503,9 @@ onBeforeUnmount(() => {
 }
 .dash-card:hover .card-resize-handle { opacity: 1; }
 .card-resize-handle:hover { color: var(--color-primary); }
+
+.anim-spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .dash-empty { padding: var(--space-16) var(--space-5); text-align: center; color: var(--color-fg-muted); font-size: 14px; }
 .dash-empty-hint { font-size: 12px; margin-top: 4px; }
