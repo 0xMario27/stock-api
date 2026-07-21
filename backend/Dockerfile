@@ -1,4 +1,6 @@
 # 后端 Dockerfile：多阶段构建，uv 安装依赖 + slim 运行时
+# Layer 1: 依赖清单（仅 pyproject.toml/uv.lock 变化时重建）
+# Layer 2: 源代码（变更时快速重构建，不重装依赖）
 FROM python:3.12-slim AS builder
 
 ENV UV_LINK_MODE=copy \
@@ -9,13 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
-COPY src/ ./src/
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --no-dev --no-install-project
 
+COPY src/ ./src/
 RUN uv sync --no-dev
 
 # 第二阶段：运行时镜像
