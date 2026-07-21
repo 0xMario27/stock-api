@@ -1,39 +1,33 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getKlines, getQuote } from "@/api";
-import type { AssetClass, Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
-import { TVChartManager, type IndicatorState, type ChartColors } from "@/utils/tvChart";
+import { getQuote } from "@/api";
+import type { AssetClass, KlinePeriod, Quote, SourceName } from "@/types";
+import TradingViewChart from "@/components/TradingViewChart.vue";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
 
 const quote = ref<Quote | null>(null);
-const klines = ref<Kline[]>([]);
-const klineLoading = ref(false);
 const period = ref<KlinePeriod>("day");
-const adjust = ref<KlineAdjust>("none");
 const source = ref<SourceName>("auto");
-const indicators = ref<IndicatorState>({ ma: true, boll: false, vwap: false, vol: true, macd: false, kdj: false, rsi: false });
-const chartContainer = ref<HTMLDivElement | null>(null);
-let tvChart: TVChartManager | null = null;
 let refreshTimer: number | null = null;
-let themeObserver: MutationObserver | null = null;
 
 const isCrypto = computed(() => props.assetClass === "crypto");
 const changeAmount = computed(() => quote.value ? quote.value.now - quote.value.yesterday : 0);
-const subCount = computed(() => (indicators.value.vol?1:0)+(indicators.value.macd?1:0)+(indicators.value.kdj?1:0)+(indicators.value.rsi?1:0));
-const chartHeight = computed(() => 400 + subCount.value * 100);
 
-const indicatorList = [
-  { key: "ma" as const, label: "MA" },
-  { key: "boll" as const, label: "BOLL" },
-  { key: "vwap" as const, label: "VWAP" },
-  { key: "vol" as const, label: "VOL" },
-  { key: "macd" as const, label: "MACD" },
-  { key: "kdj" as const, label: "KDJ" },
-  { key: "rsi" as const, label: "RSI" },
-];
+// TradingView interval 映射
+const tvInterval = computed(() => {
+  if (period.value === "week") return "W";
+  if (period.value === "month") return "M";
+  return "D";
+});
+
+// 读取当前主题
+const theme = ref<"light" | "dark">(
+  (localStorage.getItem("stock-api-py:theme") as "light" | "dark") || "dark"
+);
+let themeObserver: MutationObserver | null = null;
 
 function formatPrice(p: number): string {
   if (p >= 1000) return p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -45,60 +39,28 @@ function formatPercent(p: number): string { return (p>0?"+":"")+(p*100).toFixed(
 function formatAmount(a: number): string { return (a>0?"+":"")+formatPrice(Math.abs(a)); }
 function priceClass(p: number): string { return p>0?"text-up":p<0?"text-down":"text-flat"; }
 
-async function loadQuote() { try { quote.value = await getQuote(props.code, source.value, props.assetClass); } catch {} }
-async function loadKlines() {
-  klineLoading.value = true;
-  try {
-    klines.value = await getKlines(props.code, { period: period.value, adjust: adjust.value, count: 120, source: source.value }, props.assetClass);
-    await nextTick();
-    if (tvChart) tvChart.setData(klines.value);
-  } finally { klineLoading.value = false; }
-}
-
-function getColors(): ChartColors {
-  const cs = getComputedStyle(document.documentElement);
-  return {
-    up: cs.getPropertyValue("--color-up").trim()||"#EF4444",
-    down: cs.getPropertyValue("--color-down").trim()||"#26A69A",
-    border: cs.getPropertyValue("--color-border").trim()||"#334155",
-    fg: cs.getPropertyValue("--color-fg").trim()||"#F8FAFC",
-    fgSec: cs.getPropertyValue("--color-fg-secondary").trim()||"#94A3B8",
-    fgMuted: cs.getPropertyValue("--color-fg-muted").trim()||"#64748B",
-    grid: cs.getPropertyValue("--chart-grid").trim()||"rgba(51,65,85,0.3)",
-    tooltipBg: cs.getPropertyValue("--chart-tooltip-bg").trim()||"rgba(15,23,42,0.95)",
-    primary: cs.getPropertyValue("--color-primary").trim()||"#3B82F6",
-    accent: cs.getPropertyValue("--color-accent").trim()||"#8B5CF6",
-  };
-}
-
-function toggleIndicator(key: keyof IndicatorState) {
-  indicators.value[key] = !indicators.value[key];
-  if (tvChart) tvChart.updateIndicators(indicators.value);
+async function loadQuote() {
+  try { quote.value = await getQuote(props.code, source.value, props.assetClass); } catch {}
 }
 
 function startAutoRefresh() { stopAutoRefresh(); refreshTimer = window.setInterval(() => loadQuote(), 15000); }
 function stopAutoRefresh() { if (refreshTimer !== null) { clearInterval(refreshTimer); refreshTimer = null; } }
 function goInspect() { router.push("/inspect/" + props.code + "?asset_class=" + props.assetClass); }
 
-watch(() => props.code, () => { loadQuote(); loadKlines(); });
-watch([period, adjust, source], () => loadKlines());
+watch(() => props.code, () => { loadQuote(); });
+watch(source, () => loadQuote());
 
 onMounted(() => {
-  if (chartContainer.value) {
-    tvChart = new TVChartManager(indicators.value, getColors());
-    tvChart.mount(chartContainer.value);
-  }
-  loadQuote();
-  loadKlines();
-  startAutoRefresh();
-  themeObserver = new MutationObserver(() => { if (tvChart) tvChart.updateColors(getColors()); });
-  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-color-rule"] });
+  loadQuote(); startAutoRefresh();
+  themeObserver = new MutationObserver(() => {
+    theme.value = document.documentElement.getAttribute("data-theme") as "light" | "dark" || "dark";
+  });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 });
 
 onBeforeUnmount(() => {
   stopAutoRefresh();
   themeObserver?.disconnect(); themeObserver = null;
-  tvChart?.destroy(); tvChart = null;
 });
 </script>
 
@@ -145,21 +107,8 @@ onBeforeUnmount(() => {
               {{ p === 'day' ? '日K' : p === 'week' ? '周K' : '月K' }}
             </button>
           </div>
-          <div v-if="!isCrypto" class="ui-segmented">
-            <button v-for="a in (['none','qfq','hfq'] as KlineAdjust[])" :key="a"
-              :class="['ui-segmented-btn', { active: adjust === a }]" @click="adjust = a">
-              {{ a === 'none' ? '不复权' : a === 'qfq' ? '前复权' : '后复权' }}
-            </button>
-          </div>
         </div>
         <div class="toolbar-right">
-          <div class="indicator-toggles">
-            <button v-for="ind in indicatorList" :key="ind.key"
-              :class="['ind-btn', { active: indicators[ind.key] }]"
-              @click="toggleIndicator(ind.key)">
-              {{ ind.label }}
-            </button>
-          </div>
           <select v-if="!isCrypto" v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
             <option value="tencent">腾讯</option>
@@ -175,14 +124,14 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- 图表 -->
-      <div v-loading="klineLoading" class="chart-area">
-        <div
-          ref="chartContainer"
-          class="chart-container"
-          :style="{ height: chartHeight + 'px' }"
-        ></div>
-        <div v-if="!klineLoading && klines.length === 0" class="chart-empty">无 K 线数据</div>
+      <!-- TradingView 图表 -->
+      <div class="chart-area">
+        <TradingViewChart
+          :code="props.code"
+          :asset-class="props.assetClass"
+          :interval="tvInterval"
+          :theme="theme"
+        />
       </div>
     </div>
   </div>
@@ -228,32 +177,22 @@ onBeforeUnmount(() => {
 .toolbar-left { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .toolbar-right { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 
-.indicator-toggles { display: flex; gap: 4px; flex-wrap: wrap; }
-.ind-btn {
-  padding: 4px 8px; border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm); background: var(--color-bg);
-  color: var(--color-fg-muted); font-size: 11px; font-weight: 600;
-  cursor: pointer; transition: all var(--transition-fast); min-height: 28px;
-  font-family: var(--font-sans);
-}
-.ind-btn:hover { border-color: var(--color-fg-muted); color: var(--color-fg); }
-.ind-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-
-.chart-area { position: relative; padding: var(--space-2); min-height: 420px; }
-.chart-container { width: 100%; }
-.chart-empty {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  color: var(--color-fg-muted); font-size: 14px;
+.chart-area {
+  position: relative;
+  height: 600px;
+  padding: var(--space-2);
 }
 
 @media (max-width: 768px) {
   .quote-bar { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
   .quote-stats-bar { width: 100%; justify-content: space-between; gap: var(--space-2); }
   .price-now { font-size: 26px; }
+  .chart-area { height: 500px; }
 }
 @media (max-width: 640px) {
   .chart-toolbar { padding: var(--space-2); }
   .toolbar-left, .toolbar-right { width: 100%; }
   .ui-select { flex: 1; }
+  .chart-area { height: 450px; }
 }
 </style>
