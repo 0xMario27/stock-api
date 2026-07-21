@@ -18,6 +18,11 @@ const marketLabel: Record<string, string> = {
   cn_a: "A股",
   hk: "港股",
   us: "美股",
+  index: "指数",
+  fund: "基金",
+  future: "期指",
+  option: "期权",
+  commodity: "商品",
   crypto: "加密",
 };
 
@@ -25,6 +30,11 @@ const marketShort: Record<string, string> = {
   cn_a: "A",
   hk: "HK",
   us: "US",
+  index: "IDX",
+  fund: "FND",
+  future: "FUT",
+  option: "OPT",
+  commodity: "COM",
   crypto: "COIN",
 };
 
@@ -32,6 +42,11 @@ const marketBadgeClass: Record<string, string> = {
   cn_a: "market-a",
   hk: "market-hk",
   us: "market-us",
+  index: "market-index",
+  fund: "market-fund",
+  future: "market-future",
+  option: "market-option",
+  commodity: "market-commodity",
   crypto: "market-crypto",
 };
 
@@ -520,6 +535,31 @@ onBeforeUnmount(() => {
 .market-us {
   background: rgba(59, 130, 246, 0.15);
   color: var(--color-primary);
+}
+
+.market-index {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--color-accent);
+}
+
+.market-fund {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+}
+
+.market-future {
+  background: rgba(236, 72, 153, 0.15);
+  color: #EC4899;
+}
+
+.market-option {
+  background: rgba(14, 165, 233, 0.15);
+  color: #0EA5E9;
+}
+
+.market-commodity {
+  background: rgba(217, 119, 6, 0.15);
+  color: #D97706;
 }
 
 .market-crypto {

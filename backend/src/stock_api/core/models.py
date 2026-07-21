@@ -20,11 +20,16 @@ class AssetClass(StrEnum):
 
 
 class Market(StrEnum):
-    """市场标识。STOCK 下细分 A 股 / 港股 / 美股；CRYPTO 在二期扩展。"""
+    """市场标识。"""
 
     CN_A = "cn_a"
     HK = "hk"
     US = "us"
+    INDEX = "index"
+    FUND = "fund"
+    FUTURE = "future"
+    OPTION = "option"
+    COMMODITY = "commodity"
     CRYPTO = "crypto"
 
 

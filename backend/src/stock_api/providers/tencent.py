@@ -23,6 +23,7 @@ from stock_api.market.codes import (
     COMMON_SZ,
     COMMON_US,
     CodeMapper,
+    detect_market,
     normalize_codes,
     tencent_code_mapper,
 )
@@ -138,7 +139,7 @@ class TencentProvider(DataProvider):
 
         quotes = await self.get_quotes(codes)
         return [
-            Symbol(code=q.code, name=q.name, market=_detect_market(q.code), asset_class=AssetClass.STOCK)
+            Symbol(code=q.code, name=q.name, market=detect_market(q.code), asset_class=AssetClass.STOCK)
             for q in quotes
             if q.name != "---"
         ]
@@ -148,16 +149,48 @@ class TencentProvider(DataProvider):
 
 
 def _extract_params(row: str) -> list[str]:
-    """提取 `var v="a~b~c";` 中等号后的分隔字段。"""
+    """提取 `var v="a~b~c";` 或 `var v="a,b,c";` 中等号后的分隔字段。"""
     if "=" not in row:
         return []
     value = row.split("=", 1)[1].strip()
     value = value.strip('"').strip(";")
-    return value.split("~")
+    if "~" in value:
+        return value.split("~")
+    return value.split(",")
+
+
+# 商品名称映射（腾讯商品响应不含名称）
+_COM_NAMES: dict[str, str] = {
+    "XAU": "伦敦金", "XAG": "伦敦银", "GC": "纽约黄金",
+    "CL": "纽约原油", "SI": "纽约白银", "NG": "天然气",
+    "HG": "伦敦铜", " Palladium": "钯金",
+}
 
 
 def _parse_tencent_quote(code: str, params: list[str]) -> Quote:
-    """对应原 TS 的 parseTencentStock。"""
+    """对应原 TS 的 parseTencentStock，支持股票和商品格式。"""
+    upper = code.upper()
+
+    # 商品格式（hf_ 响应，逗号分隔，字段位置不同）
+    if upper.startswith("COM"):
+        com_code = upper[3:]
+        now = _number_at(params, 0)
+        yesterday = _number_at(params, 7)
+        pct = _number_at(params, 1)
+        return Quote(
+            code=code,
+            name=_COM_NAMES.get(com_code, com_code),
+            now=now,
+            low=_number_at(params, 5),
+            high=_number_at(params, 4),
+            yesterday=yesterday,
+            percent=pct / 100 if pct else 0.0,
+            source="tencent",
+            asset_class=AssetClass.STOCK,
+            market=Market.COMMODITY,
+        )
+
+    # 股票/指数/基金格式（~ 分隔）
     now = _number_at(params, 3)
     yesterday = _number_at(params, 4)
     percent = now / yesterday - 1 if yesterday else 0.0
@@ -172,7 +205,7 @@ def _parse_tencent_quote(code: str, params: list[str]) -> Quote:
         percent=percent,
         source="tencent",
         asset_class=AssetClass.STOCK,
-        market=_detect_market(code),
+        market=detect_market(code),
     )
 
 
@@ -207,13 +240,3 @@ def _parse_search_codes(body: str) -> list[str]:
             codes.append(COMMON_US + upper)
     return normalize_codes(codes)
 
-
-def _detect_market(code: str) -> Market | None:
-    upper = code.upper()
-    if upper.startswith(COMMON_SH) or upper.startswith(COMMON_SZ):
-        return Market.CN_A
-    if upper.startswith(COMMON_HK):
-        return Market.HK
-    if upper.startswith(COMMON_US):
-        return Market.US
-    return None

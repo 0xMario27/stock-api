@@ -23,6 +23,7 @@ from stock_api.market.codes import (
     COMMON_SZ,
     COMMON_US,
     CodeMapper,
+    detect_market,
     normalize_codes,
     sina_code_mapper,
 )
@@ -66,12 +67,16 @@ def _is_intraday(period: KlinePeriod) -> bool:
     return period in (KlinePeriod.MINUTE_5, KlinePeriod.MINUTE_15, KlinePeriod.MINUTE_30, KlinePeriod.HOUR)
 
 
-# 新浪不同市场的字段位置。对应原 TS 的 fieldMap。
+# 新浪不同市场的字段位置。
+# 商品(hf_)格式特殊：name 在末尾，价格在开头
 _FIELD_MAP: dict[str, dict[str, int]] = {
     COMMON_SH: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
     COMMON_SZ: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
     COMMON_HK: {"name": 1, "now": 6, "low": 5, "high": 4, "yesterday": 3},
     COMMON_US: {"name": 0, "now": 1, "low": 7, "high": 6, "yesterday": 26},
+    "FU": {"name": 49, "now": 3, "low": 10, "high": 9, "yesterday": 2},
+    "CO": {"name": 13, "now": 0, "low": 5, "high": 4, "yesterday": 1},
+    "OP": {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
 }
 
 
@@ -167,7 +172,7 @@ class SinaProvider(DataProvider):
 
         quotes = await self.get_quotes(codes)
         return [
-            Symbol(code=q.code, name=q.name, market=_detect_market(q.code), asset_class=AssetClass.STOCK)
+            Symbol(code=q.code, name=q.name, market=detect_market(q.code), asset_class=AssetClass.STOCK)
             for q in quotes
             if q.name != "---"
         ]
@@ -205,7 +210,7 @@ def _parse_sina_quote(code: str, params: list[str]) -> Quote:
         percent=percent,
         source="sina",
         asset_class=AssetClass.STOCK,
-        market=_detect_market(code),
+        market=detect_market(code),
     )
 
 
@@ -246,14 +251,3 @@ def _parse_search_codes(body: str) -> list[str]:
             codes.append(COMMON_SZ + fund_code)
             codes.append(COMMON_SH + fund_code)
     return normalize_codes(codes)
-
-
-def _detect_market(code: str) -> Market | None:
-    upper = code.upper()
-    if upper.startswith(COMMON_SH) or upper.startswith(COMMON_SZ):
-        return Market.CN_A
-    if upper.startswith(COMMON_HK):
-        return Market.HK
-    if upper.startswith(COMMON_US):
-        return Market.US
-    return None
