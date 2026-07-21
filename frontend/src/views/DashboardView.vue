@@ -3,9 +3,11 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useStockStore } from "@/stores/stock";
 import * as echarts from "echarts";
-import { RefreshCw, X, LayoutGrid, GripHorizontal } from "lucide-vue-next";
+import { RefreshCw, X, LayoutGrid, GripHorizontal, GripVertical } from "lucide-vue-next";
+import draggable from "vuedraggable";
 import MarketBadge from "@/components/MarketBadge.vue";
-import type { Quote, Kline } from "@/types";
+import type { Quote, Kline, AssetClass } from "@/types";
+import type { DashItem } from "@/stores/stock";
 
 const store = useStockStore();
 const router = useRouter();
@@ -26,19 +28,19 @@ interface DashCard {
   return30d: number | null;
 }
 
-const cards = computed<DashCard[]>(() => {
-  return store.dashItems.map((item) => {
-    const key = `${item.assetClass}:${item.code}`;
-    const sparkline = store.dashSparklines[key] || null;
-    let return30d: number | null = null;
-    if (sparkline && sparkline.length > 1) {
-      const first = sparkline[0].close;
-      const last = sparkline[sparkline.length - 1].close;
-      if (first > 0) return30d = (last - first) / first;
-    }
-    return { key, code: item.code, assetClass: item.assetClass, quote: store.dashQuotes[key] || null, sparkline, return30d };
-  });
-});
+function getCardData(item: DashItem): DashCard {
+  const key = `${item.assetClass}:${item.code}`;
+  const sparkline = store.dashSparklines[key] || null;
+  let return30d: number | null = null;
+  if (sparkline && sparkline.length > 1) {
+    const first = sparkline[0].close;
+    const last = sparkline[sparkline.length - 1].close;
+    if (first > 0) return30d = (last - first) / first;
+  }
+  return { key, code: item.code, assetClass: item.assetClass, quote: store.dashQuotes[key] || null, sparkline, return30d };
+}
+
+const cards = computed<DashCard[]>(() => store.dashItems.map(getCardData));
 
 const stats = computed(() => {
   const valid = cards.value.filter((c) => c.quote && c.quote.source !== "base");
@@ -117,6 +119,14 @@ function onResizeEnd(): void {
     if (chart) setTimeout(() => chart.resize(), 0);
     resizeCard = null;
   }
+}
+
+// === 拖拽排序 ===
+function onDragEnd(): void {
+  // vuedraggable 直接修改 store.dashItems 顺序
+  store.persistDash();
+  // 重新渲染走势图（DOM 位置变了，echarts 实例需要 resize）
+  setTimeout(renderAllSparklines, 50);
 }
 
 function getColors() {
@@ -268,93 +278,106 @@ onBeforeUnmount(() => {
 
     <el-alert v-if="store.dashError" :title="store.dashError" type="error" :closable="false" show-icon class="dash-alert" />
 
-    <!-- 卡片网格 -->
-    <div v-if="cards.length > 0" class="card-grid">
-      <div v-for="card in cards" :key="card.key" class="dash-card ui-card"
-        :style="cardWidths[card.key] ? { width: cardWidths[card.key] + 'px', flexShrink: 0 } : {}"
-        @click="viewDetail(card.code, card.assetClass)">
-        <!-- 卡片头部 -->
-        <div class="card-top">
-          <div class="card-id">
-            <span class="card-code text-mono">{{ card.code }}</span>
-            <MarketBadge :market="card.quote?.market ?? null" />
+    <!-- 卡片网格（可拖拽排序） -->
+    <draggable v-if="cards.length > 0"
+      v-model="store.dashItems"
+      item-key="code"
+      handle=".card-drag-handle"
+      animation="200"
+      ghost-class="drag-ghost"
+      chosen-class="drag-chosen"
+      class="card-grid"
+      @end="onDragEnd"
+    >
+      <template #item="{ element, index }">
+        <div class="dash-card ui-card"
+          :style="cardWidths[`${element.assetClass}:${element.code}`] ? { width: cardWidths[`${element.assetClass}:${element.code}`] + 'px', flexShrink: 0 } : {}"
+          @click="viewDetail(element.code, element.assetClass)">
+          <!-- 卡片头部 -->
+          <div class="card-top">
+            <div class="card-id">
+              <span class="card-drag-handle" title="拖拽排序">
+                <GripVertical :size="14" />
+              </span>
+              <span class="card-code text-mono">{{ element.code }}</span>
+              <MarketBadge :market="store.dashQuotes[`${element.assetClass}:${element.code}`]?.market ?? null" />
+            </div>
+            <button class="card-remove" @click.stop="removeCard(element.code, element.assetClass)" title="移除">
+              <X :size="12" />
+            </button>
           </div>
-          <button class="card-remove" @click.stop="removeCard(card.code, card.assetClass)" title="移除">
-            <X :size="12" />
-          </button>
-        </div>
 
-        <div v-if="card.quote && card.quote.source !== 'base'" class="card-body">
+        <div v-if="getCardData(element).quote && getCardData(element).quote!.source !== 'base'" class="card-body">
           <!-- 名称 -->
-          <div class="card-name">{{ card.quote.name }}</div>
+          <div class="card-name">{{ getCardData(element).quote!.name }}</div>
 
           <!-- 价格 + 涨跌 -->
           <div class="card-price-row">
-            <span class="card-price text-mono" :class="priceClass(card.quote.percent)">{{ formatPrice(card.quote.now) }}</span>
-            <div class="card-change" :class="priceClass(card.quote.percent)">
-              <span class="card-pct text-mono">{{ formatPercent(card.quote.percent) }}</span>
-              <span class="card-amt text-mono">{{ formatAmount(card.quote.now - card.quote.yesterday) }}</span>
+            <span class="card-price text-mono" :class="priceClass(getCardData(element).quote!.percent)">{{ formatPrice(getCardData(element).quote!.now) }}</span>
+            <div class="card-change" :class="priceClass(getCardData(element).quote!.percent)">
+              <span class="card-pct text-mono">{{ formatPercent(getCardData(element).quote!.percent) }}</span>
+              <span class="card-amt text-mono">{{ formatAmount(getCardData(element).quote!.now - getCardData(element).quote!.yesterday) }}</span>
             </div>
           </div>
 
           <!-- 迷你走势图（含成交量） -->
-          <div :id="'spark-' + card.key" class="card-spark"></div>
+          <div :id="'spark-' + getCardData(element).key" class="card-spark"></div>
 
           <!-- 30日收益率 -->
-          <div v-if="card.return30d !== null" class="card-return-row">
+          <div v-if="getCardData(element).return30d !== null" class="card-return-row">
             <span class="return-lbl">30日收益</span>
-            <span class="return-val text-mono" :class="priceClass(card.return30d)">{{ formatPercent(card.return30d) }}</span>
+            <span class="return-val text-mono" :class="priceClass(getCardData(element).return30d!)">{{ formatPercent(getCardData(element).return30d!) }}</span>
           </div>
 
           <!-- 底部指标网格 -->
           <div class="card-stats">
             <div class="mini-stat">
               <span class="mini-lbl">开盘</span>
-              <span class="mini-val text-mono">{{ card.quote.open_price ? formatPrice(card.quote.open_price) : "-" }}</span>
+              <span class="mini-val text-mono">{{ getCardData(element).quote!.open_price ? formatPrice(getCardData(element).quote!.open_price!) : "-" }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">最高</span>
-              <span class="mini-val text-mono text-up">{{ formatPrice(card.quote.high) }}</span>
+              <span class="mini-val text-mono text-up">{{ formatPrice(getCardData(element).quote!.high) }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">最低</span>
-              <span class="mini-val text-mono text-down">{{ formatPrice(card.quote.low) }}</span>
+              <span class="mini-val text-mono text-down">{{ formatPrice(getCardData(element).quote!.low) }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">振幅</span>
-              <span class="mini-val text-mono">{{ card.quote.yesterday ? ((card.quote.high - card.quote.low) / card.quote.yesterday * 100).toFixed(2) : "0.00" }}%</span>
+              <span class="mini-val text-mono">{{ getCardData(element).quote!.yesterday ? ((getCardData(element).quote!.high - getCardData(element).quote!.low) / getCardData(element).quote!.yesterday * 100).toFixed(2) : "0.00" }}%</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">成交量</span>
-              <span class="mini-val text-mono">{{ formatVolume(card.quote.volume) }}</span>
+              <span class="mini-val text-mono">{{ formatVolume(getCardData(element).quote!.volume) }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">成交额</span>
-              <span class="mini-val text-mono">{{ card.quote.turnover ? formatMoney(card.quote.turnover) : "-" }}</span>
+              <span class="mini-val text-mono">{{ getCardData(element).quote!.turnover ? formatMoney(getCardData(element).quote!.turnover) : "-" }}</span>
             </div>
-            <div v-if="card.quote.pe_ratio" class="mini-stat">
+            <div v-if="getCardData(element).quote!.pe_ratio" class="mini-stat">
               <span class="mini-lbl">市盈率</span>
-              <span class="mini-val text-mono">{{ card.quote.pe_ratio.toFixed(2) }}</span>
+              <span class="mini-val text-mono">{{ getCardData(element).quote!.pe_ratio!.toFixed(2) }}</span>
             </div>
-            <div v-if="card.quote.pb_ratio" class="mini-stat">
+            <div v-if="getCardData(element).quote!.pb_ratio" class="mini-stat">
               <span class="mini-lbl">市净率</span>
-              <span class="mini-val text-mono">{{ card.quote.pb_ratio.toFixed(2) }}</span>
+              <span class="mini-val text-mono">{{ getCardData(element).quote!.pb_ratio!.toFixed(2) }}</span>
             </div>
-            <div v-if="card.quote.market_cap" class="mini-stat">
+            <div v-if="getCardData(element).quote!.market_cap" class="mini-stat">
               <span class="mini-lbl">总市值</span>
-              <span class="mini-val text-mono">{{ formatMoney(card.quote.market_cap) }}</span>
+              <span class="mini-val text-mono">{{ formatMoney(getCardData(element).quote!.market_cap) }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">市场</span>
-              <MarketBadge :market="card.quote.market" />
+              <MarketBadge :market="getCardData(element).quote!.market" />
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">数据源</span>
-              <span class="ui-source-badge">{{ card.quote.source }}</span>
+              <span class="ui-source-badge">{{ getCardData(element).quote!.source }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">资产</span>
-              <span class="ui-source-badge">{{ card.assetClass === "crypto" ? "加密" : "股票" }}</span>
+              <span class="ui-source-badge">{{ element.assetClass === "crypto" ? "加密" : "股票" }}</span>
             </div>
           </div>
         </div>
@@ -362,11 +385,12 @@ onBeforeUnmount(() => {
         <div v-else class="card-empty">
           <span>暂无数据</span>
         </div>
-        <div class="card-resize-handle" @mousedown.prevent.stop="startResize($event, card.key)" title="拖拽调整宽度">
+        <div class="card-resize-handle" @mousedown.prevent.stop="startResize($event, getCardData(element).key)" title="拖拽调整宽度">
           <GripHorizontal :size="10" />
         </div>
-      </div>
-    </div>
+        </div>
+      </template>
+    </draggable>
 
     <!-- 空状态 -->
     <div v-else-if="!store.dashLoading" class="dash-empty">
@@ -432,6 +456,17 @@ onBeforeUnmount(() => {
 }
 .card-id { display: flex; align-items: center; gap: 6px; }
 .card-code { font-size: 15px; font-weight: 700; color: var(--color-fg); }
+
+.card-drag-handle {
+  display: flex; align-items: center; cursor: grab;
+  color: var(--color-fg-muted); opacity: 0.4;
+  transition: opacity var(--transition-fast);
+}
+.card-drag-handle:hover { opacity: 1; color: var(--color-primary); }
+.card-drag-handle:active { cursor: grabbing; }
+
+.drag-ghost { opacity: 0.4; }
+.drag-chosen { box-shadow: var(--shadow-elevated); }
 
 .card-remove {
   display: flex; align-items: center; justify-content: center;

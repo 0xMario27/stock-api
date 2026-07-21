@@ -357,6 +357,7 @@ export const useStockStore = defineStore("stock", () => {
     removeFromDash,
     isInDash,
     refreshDash,
+    persistDash,
     // Realtime
     realtimeConnected,
     initRealtime,
