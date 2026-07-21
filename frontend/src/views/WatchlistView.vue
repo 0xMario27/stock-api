@@ -82,12 +82,34 @@ function viewDetail(code: string): void {
   router.push(`/stock/${code}?asset_class=${store.assetClass}`);
 }
 
+function isValidCode(query: string): boolean {
+  const u = query.trim().toUpperCase();
+  if (u.length < 4) return false;
+  // SH/SZ + 4-6 位数字
+  if (/^SH\d{4,6}$/.test(u) || /^SZ\d{4,6}$/.test(u)) return true;
+  // HK/US/FUT/COM/OPT 前缀 + 至少 1 位
+  for (const p of ["HK", "US", "FUT", "COM", "OPT"]) {
+    if (u.startsWith(p) && u.length > p.length + 1) return true;
+  }
+  return false;
+}
+
 async function doSearch(): Promise<void> {
   const query = searchQuery.value.trim();
   if (!query) {
     searchResults.value = [];
     return;
   }
+
+  // 合法代码格式：直接添加到自选，不查搜索 API
+  if (isValidCode(query)) {
+    store.addCode(query);
+    store.refreshOne(query);
+    searchQuery.value = "";
+    searchResults.value = [];
+    return;
+  }
+
   searching.value = true;
   try {
     searchResults.value = await searchSymbols(query, store.source, store.assetClass);
