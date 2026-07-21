@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from "vue";
+import { onMounted, onBeforeUnmount, ref, computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useStockStore } from "@/stores/stock";
 import * as echarts from "echarts";
@@ -10,6 +10,10 @@ const router = useRouter();
 const refreshTimer = ref<number | null>(null);
 const chartInstances = new Map<string, echarts.ECharts>();
 const lastUpdate = ref<string>("");
+
+const CARD_MIN_W = 300;
+const CARD_MAX_W = 900;
+const cardWidths = reactive<Record<string, number>>({});
 
 const marketLabel: Record<string, string> = {
   cn_a: "A股", hk: "港股", us: "美股", index: "指数", fund: "基金",
@@ -88,6 +92,40 @@ function removeCard(code: string, ac: string): void {
   const chart = chartInstances.get(key);
   if (chart) { chart.dispose(); chartInstances.delete(key); }
   store.removeFromDash(code, ac as any);
+}
+
+// === 卡片拖拽调整大小 ===
+let resizeCard: string | null = null;
+let resizeStartX = 0;
+let resizeStartW = 0;
+
+function startResize(e: MouseEvent, key: string): void {
+  resizeCard = key;
+  resizeStartX = e.clientX;
+  resizeStartW = cardWidths[key] || 0;
+  document.addEventListener("mousemove", onResizeMove);
+  document.addEventListener("mouseup", onResizeEnd);
+  document.body.style.cursor = "ew-resize";
+  document.body.style.userSelect = "none";
+}
+
+function onResizeMove(e: MouseEvent): void {
+  if (!resizeCard) return;
+  const delta = e.clientX - resizeStartX;
+  const newW = Math.min(CARD_MAX_W, Math.max(CARD_MIN_W, resizeStartW + delta));
+  cardWidths[resizeCard] = newW;
+}
+
+function onResizeEnd(): void {
+  document.removeEventListener("mousemove", onResizeMove);
+  document.removeEventListener("mouseup", onResizeEnd);
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  if (resizeCard) {
+    const chart = chartInstances.get(resizeCard);
+    if (chart) setTimeout(() => chart.resize(), 0);
+    resizeCard = null;
+  }
 }
 
 function getColors() {
@@ -244,7 +282,9 @@ onBeforeUnmount(() => {
 
     <!-- 卡片网格 -->
     <div v-if="cards.length > 0" class="card-grid">
-      <div v-for="card in cards" :key="card.key" class="dash-card ui-card" @click="viewDetail(card.code, card.assetClass)">
+      <div v-for="card in cards" :key="card.key" class="dash-card ui-card"
+        :style="cardWidths[card.key] ? { width: cardWidths[card.key] + 'px', flexShrink: 0 } : {}"
+        @click="viewDetail(card.code, card.assetClass)">
         <!-- 卡片头部 -->
         <div class="card-top">
           <div class="card-id">
@@ -334,6 +374,11 @@ onBeforeUnmount(() => {
         <div v-else class="card-empty">
           <span>暂无数据</span>
         </div>
+        <div class="card-resize-handle" @mousedown.prevent.stop="startResize($event, card.key)" title="拖拽调整宽度">
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" opacity="0.3">
+            <circle cx="6" cy="2" r="0.8"/><circle cx="2" cy="6" r="0.8"/><circle cx="6" cy="6" r="0.8"/>
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -383,14 +428,14 @@ onBeforeUnmount(() => {
 
 /* 卡片网格 */
 .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: var(--space-4);
+  display: flex; flex-wrap: wrap; gap: var(--space-4);
 }
 
 .dash-card {
+  flex: 1 1 var(--card-min-w); min-width: 300px; max-width: 100%;
   padding: var(--space-5);
   cursor: pointer;
+  position: relative;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .dash-card:hover {
@@ -457,6 +502,17 @@ onBeforeUnmount(() => {
 
 .card-empty { padding: var(--space-8) 0; text-align: center; color: var(--color-fg-muted); font-size: 13px; }
 
+.card-resize-handle {
+  position: absolute; bottom: 4px; right: 4px;
+  width: 20px; height: 20px; cursor: ew-resize;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  opacity: 0; transition: opacity var(--transition-fast);
+  color: var(--color-fg-muted);
+  border-radius: 0 0 var(--radius-lg) 0;
+}
+.dash-card:hover .card-resize-handle { opacity: 1; }
+.card-resize-handle:hover { color: var(--color-primary); }
+
 .dash-empty { padding: var(--space-16) var(--space-5); text-align: center; color: var(--color-fg-muted); font-size: 14px; }
 .dash-empty-hint { font-size: 12px; margin-top: 4px; }
 
@@ -464,7 +520,7 @@ onBeforeUnmount(() => {
   .stats-bar { gap: var(--space-3); }
   .stat-block { min-width: 50px; }
   .stat-num { font-size: 16px; }
-  .card-grid { grid-template-columns: 1fr; }
+  .dash-card { flex: 1 1 100%; min-width: unset; }
   .card-spark { height: 70px; }
 }
 @media (max-width: 480px) {

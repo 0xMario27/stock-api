@@ -1,27 +1,59 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useStockStore } from "@/stores/stock";
+
+type ThemeMode = "light" | "dark" | "system";
 
 const store = useStockStore();
 const colorRule = ref(localStorage.getItem("stock-api-py:color-rule") || "asia");
-const theme = ref<"light" | "dark">(
-  (localStorage.getItem("stock-api-py:theme") as "light" | "dark") || "dark"
+const theme = ref<ThemeMode>(
+  (localStorage.getItem("stock-api-py:theme") as ThemeMode) || "dark"
 );
 
+let systemMedia: MediaQueryList | null = null;
+
+function resolveTheme(): "light" | "dark" {
+  if (theme.value === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return theme.value;
+}
+
 function applyTheme() {
-  document.documentElement.setAttribute("data-theme", theme.value);
-  document.documentElement.classList.toggle("dark", theme.value === "dark");
+  const resolved = resolveTheme();
+  document.documentElement.setAttribute("data-theme", resolved);
+  document.documentElement.classList.toggle("dark", resolved === "dark");
 }
 
 function applyColorRule() {
   document.documentElement.setAttribute("data-color-rule", colorRule.value);
 }
 
-function toggleTheme() {
-  theme.value = theme.value === "dark" ? "light" : "dark";
+function cycleTheme() {
+  const cycle: ThemeMode[] = ["dark", "light", "system"];
+  const idx = cycle.indexOf(theme.value);
+  theme.value = cycle[(idx + 1) % cycle.length];
   localStorage.setItem("stock-api-py:theme", theme.value);
   applyTheme();
 }
+
+function listenSystemTheme() {
+  systemMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  systemMedia.addEventListener("change", () => {
+    if (theme.value === "system") applyTheme();
+  });
+}
+
+const themeIcons: Record<ThemeMode, string> = {
+  dark: "moon",
+  light: "sun",
+  system: "system",
+};
+const themeTitles: Record<ThemeMode, string> = {
+  dark: "深色模式",
+  light: "浅色模式",
+  system: "跟随系统",
+};
 
 function toggleColorRule() {
   colorRule.value = colorRule.value === "asia" ? "intl" : "asia";
@@ -32,7 +64,12 @@ function toggleColorRule() {
 onMounted(() => {
   applyTheme();
   applyColorRule();
+  listenSystemTheme();
   store.initRealtime();
+});
+
+onBeforeUnmount(() => {
+  systemMedia?.removeEventListener("change", applyTheme);
 });
 </script>
 
@@ -80,13 +117,17 @@ onMounted(() => {
             <span class="rt-dot"></span>
             <span class="rt-label">{{ store.realtimeConnected ? '实时' : '离线' }}</span>
           </div>
-          <button class="ui-icon-btn" @click="toggleTheme" :title="theme === 'dark' ? '切换到浅色' : '切换到深色'">
-            <svg v-if="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="ui-icon-btn" @click="cycleTheme" :title="themeTitles[theme]">
+            <svg v-if="themeIcons[theme] === 'sun'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="4" />
               <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
             </svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg v-else-if="themeIcons[theme] === 'moon'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
             </svg>
           </button>
 
@@ -146,16 +187,23 @@ onMounted(() => {
 }
 
 .rt-indicator {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: var(--radius-md);
-  font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: var(--radius-md);
+  font-size: 12px; font-weight: 600;
+  border: 1px solid transparent;
 }
 .rt-dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
 }
-.rt-on { background: rgba(38, 166, 154, 0.12); color: var(--color-down); }
+.rt-on {
+  background: rgba(38, 166, 154, 0.12); color: var(--color-down);
+  border-color: rgba(38, 166, 154, 0.25);
+}
 .rt-on .rt-dot { background: var(--color-down); animation: pulse 2s infinite; }
-.rt-off { background: var(--color-muted); color: var(--color-fg-muted); }
+.rt-off {
+  background: var(--color-muted); color: var(--color-fg-muted);
+  border-color: var(--color-border-light);
+}
 .rt-off .rt-dot { background: var(--color-fg-muted); }
 
 @keyframes pulse {
