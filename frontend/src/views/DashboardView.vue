@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useStockStore } from "@/stores/stock";
 import * as echarts from "echarts";
 import { RefreshCw, X, LayoutGrid, GripHorizontal } from "lucide-vue-next";
+import MarketBadge from "@/components/MarketBadge.vue";
 import type { Quote, Kline } from "@/types";
 
 const store = useStockStore();
@@ -15,17 +16,6 @@ const lastUpdate = ref<string>("");
 const CARD_MIN_W = 300;
 const CARD_MAX_W = 900;
 const cardWidths = reactive<Record<string, number>>({});
-
-const marketLabel: Record<string, string> = {
-  cn_a: "A股", hk: "港股", us: "美股", index: "指数", fund: "基金",
-  future: "期指", option: "期权", commodity: "商品", crypto: "加密",
-};
-
-const marketBadgeClass: Record<string, string> = {
-  cn_a: "market-a", hk: "market-hk", us: "market-us", index: "market-index",
-  fund: "market-fund", future: "market-future", option: "market-option",
-  commodity: "market-commodity", crypto: "market-crypto",
-};
 
 interface DashCard {
   key: string;
@@ -287,9 +277,7 @@ onBeforeUnmount(() => {
         <div class="card-top">
           <div class="card-id">
             <span class="card-code text-mono">{{ card.code }}</span>
-            <span v-if="card.quote?.market" :class="['market-badge', marketBadgeClass[card.quote.market] || '']">
-              {{ marketLabel[card.quote.market] || "?" }}
-            </span>
+            <MarketBadge :market="card.quote?.market ?? null" />
           </div>
           <button class="card-remove" @click.stop="removeCard(card.code, card.assetClass)" title="移除">
             <X :size="12" />
@@ -440,22 +428,6 @@ onBeforeUnmount(() => {
 }
 .card-id { display: flex; align-items: center; gap: 6px; }
 .card-code { font-size: 15px; font-weight: 700; color: var(--color-fg); }
-
-.market-badge {
-  font-size: 9px; font-weight: 700; padding: 1px 5px;
-  border-radius: var(--radius-sm); letter-spacing: 0.02em;
-  white-space: nowrap; line-height: 1.5;
-}
-.market-a { background: rgba(239,68,68,0.15); color: var(--color-up); }
-.market-hk { background: rgba(245,158,11,0.15); color: #F59E0B; }
-.market-us { background: rgba(59,130,246,0.15); color: var(--color-primary); }
-.market-index { background: rgba(139,92,246,0.15); color: var(--color-accent); }
-.market-fund { background: rgba(34,197,94,0.15); color: #22C55E; }
-.market-future { background: rgba(236,72,153,0.15); color: #EC4899; }
-.market-option { background: rgba(14,165,233,0.15); color: #0EA5E9; }
-.market-commodity { background: rgba(217,119,6,0.15); color: #D97706; }
-.market-crypto { background: rgba(139,92,246,0.15); color: var(--color-accent); }
-.asset-stock { background: rgba(59,130,246,0.15); color: var(--color-primary); }
 
 .card-remove {
   display: flex; align-items: center; justify-content: center;
