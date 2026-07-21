@@ -15,7 +15,6 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -258,7 +257,7 @@ class ConnectionPool:
             conn = WSConnection(
                 name=f"{provider}-ws",
                 url_builder=config["url_builder"],
-                on_message=self._route_message,
+                on_message=config["message_router"],
                 ping_payload=config["ping_payload"],
             )
             self._connections[provider] = conn
@@ -277,26 +276,6 @@ class ConnectionPool:
                 del self._subscribers[stream]
                 # 从连接中移除 stream（需要重连）
                 # 简化处理：不动态移除，连接保持
-
-    def _route_message(self, msg: dict[str, Any]) -> None:
-        """将收到的消息路由到对应的订阅者。"""
-        stream = msg.get("stream") or ""
-        data = msg.get("data") or msg
-
-        # 尝试匹配订阅者
-        subs = self._subscribers.get(stream, [])
-        for sub in subs:
-            try:
-                sub.callback(data)
-            except Exception as e:
-                logger.error(f"subscriber {sub.key} callback error: {e}")
-
-        # 如果没有精确匹配，尝试所有订阅者（broadcast）
-        if not subs:
-            for _stream_key, subs_list in self._subscribers.items():
-                for sub in subs_list:
-                    with suppress(Exception):
-                        sub.callback(data)
 
     def get_health(self) -> dict[str, dict]:
         """获取所有连接的健康状态。"""

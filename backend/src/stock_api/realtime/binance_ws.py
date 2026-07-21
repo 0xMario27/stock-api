@@ -122,6 +122,8 @@ def _on_binance_message(msg: dict[str, Any]) -> None:
         return
     # 通知所有该 coin 的订阅者
     callbacks = _subscribers.get(quote.code, [])
+    if callbacks:
+        logger.debug(f"[binance_ws] routing quote for {quote.code} to {len(callbacks)} subscribers, now={quote.now}")
     for cb in callbacks:
         try:
             cb(quote)
@@ -133,15 +135,7 @@ async def subscribe_ticker(
     coin_id: str,
     callback: Any,
 ) -> str:
-    """订阅某个加密货币的实时行情。
-
-    Args:
-        coin_id: 统一代码（如 bitcoin）
-        callback: 收到行情时的回调函数
-
-    Returns:
-        订阅 key（用于取消订阅）
-    """
+    """订阅某个加密货币的实时行情。"""
     stream_sym = _coin_to_stream(coin_id)
     if not stream_sym:
         raise ValueError(f"Cannot map {coin_id} to Binance symbol")
@@ -149,15 +143,13 @@ async def subscribe_ticker(
     stream = f"{stream_sym}@ticker"
     key = f"binance:{coin_id}:ticker"
 
-    # 记录回调
     if coin_id not in _subscribers:
         _subscribers[coin_id] = []
     _subscribers[coin_id].append(callback)
 
-    # 订阅
     pool = get_pool()
     await pool.subscribe(key, "binance", stream, lambda _: None)
-    logger.info(f"Subscribed to {coin_id} ({stream})")
+    logger.info(f"Subscribed to {coin_id} ({stream}), total subscribers: {sum(len(v) for v in _subscribers.values())}")
     return key
 
 

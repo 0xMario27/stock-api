@@ -271,6 +271,10 @@ export const useStockStore = defineStore("stock", () => {
   }
 
   function subscribeRealtime(code: string): void {
+    // 延迟初始化：子组件 onMounted 早于父组件，realtime 可能还没初始化
+    if (!realtime.value) {
+      initRealtime();
+    }
     if (!realtime.value) return;
     if (realtimeCodes.value.has(code)) return;
     realtimeCodes.value.add(code);
