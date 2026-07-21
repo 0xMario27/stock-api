@@ -1,7 +1,7 @@
 // 后端返回的数据模型，与 backend/src/stock_api/core/models.py 对齐
 
 export type AssetClass = "stock" | "crypto";
-export type Market = "cn_a" | "hk" | "us" | "crypto";
+export type Market = "cn_a" | "hk" | "us" | "crypto" | "index" | "fund" | "future" | "option" | "commodity";
 export type KlinePeriod = "minute1" | "minute5" | "minute15" | "minute30" | "hour" | "day" | "week" | "month";
 export type KlineAdjust = "none" | "qfq" | "hfq";
 export type InspectionStatus = "success" | "empty" | "error";

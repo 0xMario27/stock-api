@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useStockStore } from "@/stores/stock";
 import { searchSymbols } from "@/api";
-import type { Symbol as StockSymbol, Quote } from "@/types";
+import type { Symbol as StockSymbol, Quote, Market } from "@/types";
 
 const store = useStockStore();
 const router = useRouter();
@@ -92,34 +92,67 @@ function isValidCode(query: string): boolean {
   return false;
 }
 
+/* 前端推断市场类型，与后端 detect_market() 对齐 */
+function detectMarket(code: string): Market | null {
+  const u = code.toUpperCase();
+  if (u.startsWith("FUT")) return "future";
+  if (u.startsWith("COM")) return "commodity";
+  if (u.startsWith("OPT")) return "option";
+  if (u.startsWith("SH")) {
+    const num = u.slice(2);
+    if (/^000/.test(num)) return "index";
+    if (/^5/.test(num)) return "fund";
+    return "cn_a";
+  }
+  if (u.startsWith("SZ")) {
+    const num = u.slice(2);
+    if (/^399/.test(num)) return "index";
+    if (/^1[568]/.test(num)) return "fund";
+    return "cn_a";
+  }
+  if (u.startsWith("HK")) {
+    const rest = u.slice(2);
+    if (/^(HSI|HSTECH|HSCEI)$/.test(rest)) return "index";
+    return "hk";
+  }
+  if (u.startsWith("US")) {
+    const rest = u.slice(2);
+    if (/^(DJI|IXIC|INX|SPX)$/.test(rest)) return "index";
+    if (/^(XAU|XAG|GC|CL|SI|NG)$/.test(rest)) return "commodity";
+    return "us";
+  }
+  return null;
+}
+
 /* 为搜索 API 覆盖不到的市场类型构造候选代码 */
-function constructCandidates(query: string): string[] {
+function constructCandidates(query: string): StockSymbol[] {
   const u = query.trim().toUpperCase();
-  const candidates: string[] = [];
+  const codes: string[] = [];
 
-  // 纯数字: 尝试期货前缀
   if (/^\d{2,4}$/.test(u)) {
-    for (const p of ["IF", "IC", "IH", "IM"]) candidates.push("FUT" + p + u);
+    for (const p of ["IF", "IC", "IH", "IM"]) codes.push("FUT" + p + u);
   }
-  // 字母: 尝试商品/期权
   if (/^[A-Z]{3,5}$/.test(u)) {
-    candidates.push("COM" + u);
-    candidates.push("OPT" + u);
+    codes.push("COM" + u);
+    codes.push("OPT" + u);
   }
-  // 字母+数字: 期货/商品/期权
   if (/^[A-Z]{2,4}\d{2,4}$/.test(u) && u.length >= 4) {
-    candidates.push("FUT" + u);
-    candidates.push("COM" + u);
-    candidates.push("OPT" + u);
+    codes.push("FUT" + u);
+    codes.push("COM" + u);
+    codes.push("OPT" + u);
   }
-  // 数字: 也尝试 A 股股票代码（用户可能打部分股票代码）
   if (/^\d{4,6}$/.test(u)) {
-    candidates.push("SH" + u);
-    candidates.push("SZ" + u);
-    candidates.push("US" + u);
+    codes.push("SH" + u);
+    codes.push("SZ" + u);
+    codes.push("US" + u);
   }
 
-  return candidates;
+  return codes.map((code) => ({
+    code,
+    name: code,
+    market: detectMarket(code),
+    asset_class: store.assetClass,
+  }));
 }
 
 async function doSearch(): Promise<void> {
@@ -149,12 +182,9 @@ async function doSearch(): Promise<void> {
 
   // 2. 构造候选代码（覆盖期货/商品/期权/其他）
   const apiCodes = new Set(apiResults.map((r) => r.code));
-  const constructed: StockSymbol[] = [];
-  for (const code of constructCandidates(query)) {
-    if (!apiCodes.has(code) && constructed.length < 10) {
-      constructed.push({ code, name: code, market: null, asset_class: store.assetClass });
-    }
-  }
+  const constructed = constructCandidates(query)
+    .filter((c) => !apiCodes.has(c.code))
+    .slice(0, 10);
 
   // 3. 合并结果
   searchResults.value = [...apiResults, ...constructed];
