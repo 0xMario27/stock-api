@@ -29,6 +29,11 @@ class Market(StrEnum):
 
 
 class KlinePeriod(StrEnum):
+    MINUTE_1 = "minute1"
+    MINUTE_5 = "minute5"
+    MINUTE_15 = "minute15"
+    MINUTE_30 = "minute30"
+    HOUR = "hour"
     DAY = "day"
     WEEK = "week"
     MONTH = "month"
@@ -46,7 +51,7 @@ class KlineOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     period: KlinePeriod = KlinePeriod.DAY
-    count: int = Field(default=120, ge=1, le=500)
+    count: int = Field(default=120, ge=1, le=1000)
     adjust: KlineAdjust = KlineAdjust.NONE
 
 
@@ -75,13 +80,14 @@ class Kline(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    date: str = Field(description="日期，如 2026-05-22")
+    date: str = Field(description="日期 YYYY-MM-DD 或 YYYY-MM-DD HH:MM")
     open: float = 0.0
     close: float = 0.0
     high: float = 0.0
     low: float = 0.0
     volume: float | None = Field(default=None, description="成交量，数据源提供时返回")
     source: str = Field(default="base")
+    timestamp: int | None = Field(default=None, description="UNIX 时间戳（秒），分时数据用")
 
 
 class Symbol(BaseModel):

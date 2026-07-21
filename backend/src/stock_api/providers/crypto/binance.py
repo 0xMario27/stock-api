@@ -282,11 +282,17 @@ class BinanceProvider(DataProvider):
         )
 
     def _period_to_interval(self, period: KlinePeriod) -> str:
-        if period == KlinePeriod.WEEK:
-            return "1w"
-        if period == KlinePeriod.MONTH:
-            return "1M"
-        return "1d"
+        m = {
+            KlinePeriod.MINUTE_1: "1m",
+            KlinePeriod.MINUTE_5: "5m",
+            KlinePeriod.MINUTE_15: "15m",
+            KlinePeriod.MINUTE_30: "30m",
+            KlinePeriod.HOUR: "1h",
+            KlinePeriod.DAY: "1d",
+            KlinePeriod.WEEK: "1w",
+            KlinePeriod.MONTH: "1M",
+        }
+        return m.get(period, "1d")
 
     def _build_klines(self, data: list) -> list[Kline]:
         klines: list[Kline] = []
@@ -294,7 +300,7 @@ class BinanceProvider(DataProvider):
             if not isinstance(row, list) or len(row) < 6:
                 continue
             ts = row[0]
-            date = datetime.fromtimestamp(ts / 1000, tz=UTC).strftime("%Y-%m-%d")
+            date = datetime.fromtimestamp(ts / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M" if ts % 86400000 != 0 else "%Y-%m-%d")
             klines.append(
                 create_kline(
                     date=date,
@@ -304,6 +310,7 @@ class BinanceProvider(DataProvider):
                     low=row[3],
                     volume=row[5],
                     source=self.name,
+                    timestamp=ts // 1000,
                 )
             )
         return klines

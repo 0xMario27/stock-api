@@ -42,6 +42,7 @@ def create_kline(
     low: Any,
     volume: Any = None,
     source: str,
+    timestamp: int | None = None,
 ) -> Kline:
     """构造 Kline。对应原 TS 的 createKline。"""
     kline = Kline(
@@ -54,4 +55,6 @@ def create_kline(
     )
     if volume is not None:
         kline.volume = parse_kline_number(volume)
+    if timestamp is not None:
+        kline.timestamp = timestamp
     return kline

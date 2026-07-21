@@ -54,11 +54,21 @@ def _get_suggest_url(key: str) -> str:
 
 
 def _get_kline_period_code(period: KlinePeriod) -> str:
-    if period == KlinePeriod.WEEK:
-        return "102"
-    if period == KlinePeriod.MONTH:
-        return "103"
-    return "101"
+    codes = {
+        KlinePeriod.MINUTE_1: "1",
+        KlinePeriod.MINUTE_5: "5",
+        KlinePeriod.MINUTE_15: "15",
+        KlinePeriod.MINUTE_30: "30",
+        KlinePeriod.HOUR: "60",
+        KlinePeriod.DAY: "101",
+        KlinePeriod.WEEK: "102",
+        KlinePeriod.MONTH: "103",
+    }
+    return codes.get(period, "101")
+
+
+def _is_intraday(period: KlinePeriod) -> bool:
+    return period in (KlinePeriod.MINUTE_1, KlinePeriod.MINUTE_5, KlinePeriod.MINUTE_15, KlinePeriod.MINUTE_30, KlinePeriod.HOUR)
 
 
 def _get_adjust_code(adjust: KlineAdjust) -> str:
@@ -113,6 +123,7 @@ class EastmoneyProvider(DataProvider):
     async def get_klines(self, code: str, options: KlineOptions | None = None) -> list[Kline]:
         opts = normalize_kline_options(options)
         api_code = self._code_mapper.transform(code)
+        intraday = _is_intraday(opts.period)
         url = (
             f"https://{_DEFAULT_PUSH2_HIS_HOST}/api/qt/stock/kline/get"
             f"?fields1=f1,f2,f3,f4,f5,f6&fields2={_KLINE_FIELDS}"
@@ -129,15 +140,25 @@ class EastmoneyProvider(DataProvider):
             parts = line.split(",")
             if len(parts) < 6:
                 continue
+            date_str = parts[0]
+            ts = None
+            if intraday and " " in date_str:
+                from datetime import datetime
+                try:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+                    ts = int(dt.timestamp())
+                except ValueError:
+                    pass
             klines.append(
                 create_kline(
-                    date=parts[0],
+                    date=date_str,
                     open_price=parts[1],
                     close=parts[2],
                     high=parts[3],
                     low=parts[4],
                     volume=parts[5],
                     source=self.name,
+                    timestamp=ts,
                 )
             )
         return klines

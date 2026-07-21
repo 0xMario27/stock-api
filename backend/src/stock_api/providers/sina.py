@@ -11,6 +11,7 @@ from stock_api.core.models import (
     Kline,
     KlineAdjust,
     KlineOptions,
+    KlinePeriod,
     Market,
     Quote,
     Symbol,
@@ -48,12 +49,21 @@ def _get_kline_url(api_code: str, period: str, count: int) -> str:
     )
 
 
-def _get_scale(period: str) -> str:
-    if period == "week":
-        return "1200"
-    if period == "month":
-        return "7200"
-    return "240"
+def _get_scale(period: KlinePeriod) -> str:
+    scales = {
+        KlinePeriod.MINUTE_5: "5",
+        KlinePeriod.MINUTE_15: "15",
+        KlinePeriod.MINUTE_30: "30",
+        KlinePeriod.HOUR: "60",
+        KlinePeriod.DAY: "240",
+        KlinePeriod.WEEK: "1200",
+        KlinePeriod.MONTH: "7200",
+    }
+    return scales.get(period, "240")
+
+
+def _is_intraday(period: KlinePeriod) -> bool:
+    return period in (KlinePeriod.MINUTE_5, KlinePeriod.MINUTE_15, KlinePeriod.MINUTE_30, KlinePeriod.HOUR)
 
 
 # 新浪不同市场的字段位置。对应原 TS 的 fieldMap。
@@ -110,25 +120,40 @@ class SinaProvider(DataProvider):
         if opts.adjust != KlineAdjust.NONE:
             return []
 
+        # 新浪不支持 1 分钟数据
+        if opts.period == KlinePeriod.MINUTE_1:
+            return []
+
         api_code = self._code_mapper.transform(code)
-        url = _get_kline_url(api_code, opts.period.value, opts.count)
+        url = _get_kline_url(api_code, _get_scale(opts.period), opts.count)
         rows = await fetch_json(url, headers={**_REFER_HEADER, "Accept": "application/json,text/plain,*/*"})
 
         if not isinstance(rows, list):
             return []
 
-        return [
-            create_kline(
-                date=row.get("day", ""),
+        intraday = _is_intraday(opts.period)
+        result: list[Kline] = []
+        for row in rows:
+            date_str = row.get("day", "")
+            ts = None
+            if intraday and " " in date_str:
+                from datetime import datetime
+                try:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                    ts = int(dt.timestamp())
+                except ValueError:
+                    pass
+            result.append(create_kline(
+                date=date_str,
                 open_price=row.get("open"),
                 close=row.get("close"),
                 high=row.get("high"),
                 low=row.get("low"),
                 volume=row.get("volume"),
                 source=self.name,
-            )
-            for row in rows
-        ]
+                timestamp=ts,
+            ))
+        return result
 
     async def search_symbols(self, query: str) -> list[Symbol]:
         body = await fetch_bytes(

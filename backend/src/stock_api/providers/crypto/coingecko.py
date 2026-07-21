@@ -133,6 +133,10 @@ class CoinGeckoProvider(DataProvider):
         if opts.adjust != KlineAdjust.NONE:
             return []
 
+        # CoinGecko 不支持分时，返回空（Binance 会兜底）
+        if opts.period in (KlinePeriod.MINUTE_1, KlinePeriod.MINUTE_5, KlinePeriod.MINUTE_15, KlinePeriod.MINUTE_30, KlinePeriod.HOUR):
+            return []
+
         days = self._period_to_days(opts.period, opts.count)
         cache_key = f"ohlc:{code}:{days}"
 

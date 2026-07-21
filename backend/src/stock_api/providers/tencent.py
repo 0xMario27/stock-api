@@ -11,6 +11,7 @@ from stock_api.core.models import (
     Kline,
     KlineAdjust,
     KlineOptions,
+    KlinePeriod,
     Market,
     Quote,
     Symbol,
@@ -28,6 +29,15 @@ from stock_api.market.codes import (
 from stock_api.market.kline import create_kline, normalize_kline_options
 from stock_api.providers._shared import create_inspection
 from stock_api.utils.http import fetch_bytes, fetch_json
+
+# 腾讯分时 period 映射
+_TENCENT_PERIOD_MAP: dict[KlinePeriod, str] = {
+    KlinePeriod.MINUTE_1: "1",
+    KlinePeriod.MINUTE_5: "5",
+    KlinePeriod.MINUTE_15: "15",
+    KlinePeriod.MINUTE_30: "30",
+    KlinePeriod.HOUR: "60",
+}
 
 
 def _get_quote_url(api_codes: list[str]) -> str:
@@ -76,31 +86,45 @@ class TencentProvider(DataProvider):
         opts = normalize_kline_options(options)
         api_code = self._code_mapper.transform(code)
 
+        # 腾讯分时参数映射
+        tv_period = _TENCENT_PERIOD_MAP.get(opts.period, opts.period.value)
+        is_intraday = opts.period in _TENCENT_PERIOD_MAP
+
         endpoint = "kline/kline" if opts.adjust == KlineAdjust.NONE else "fqkline/get"
         adjust_prefix = "" if opts.adjust == KlineAdjust.NONE else opts.adjust.value
-        data_key = f"{adjust_prefix}{opts.period.value}"
+        data_key = f"{adjust_prefix}{tv_period}"
         adjust_param = "" if opts.adjust == KlineAdjust.NONE else f",{opts.adjust.value}"
 
         url = (
             f"https://web.ifzq.gtimg.cn/appstock/app/{endpoint}"
-            f"?param={api_code},{opts.period.value},,,{opts.count}{adjust_param}"
+            f"?param={api_code},{tv_period},,,{opts.count}{adjust_param}"
         )
         response = await fetch_json(url, headers={"Accept": "application/json,text/plain,*/*"})
         data = (response or {}).get("data", {})
         rows = (data.get(api_code) or {}).get(data_key) or []
 
-        return [
-            create_kline(
-                date=row[0] if len(row) > 0 else "",
+        result: list[Kline] = []
+        for row in rows:
+            date_str = row[0] if len(row) > 0 else ""
+            ts = None
+            if is_intraday and " " in date_str:
+                from datetime import datetime
+                try:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+                    ts = int(dt.timestamp())
+                except ValueError:
+                    pass
+            result.append(create_kline(
+                date=date_str,
                 open_price=row[1] if len(row) > 1 else 0,
                 close=row[2] if len(row) > 2 else 0,
                 high=row[3] if len(row) > 3 else 0,
                 low=row[4] if len(row) > 4 else 0,
                 volume=row[5] if len(row) > 5 else None,
                 source=self.name,
-            )
-            for row in rows
-        ]
+                timestamp=ts,
+            ))
+        return result
 
     async def search_symbols(self, query: str) -> list[Symbol]:
         body = await fetch_bytes(
