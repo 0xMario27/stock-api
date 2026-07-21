@@ -2,26 +2,18 @@
 import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { getQuote } from "@/api";
-import type { AssetClass, KlinePeriod, Quote, SourceName } from "@/types";
+import type { AssetClass, Quote, SourceName } from "@/types";
 import TradingViewChart from "@/components/TradingViewChart.vue";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
 
 const quote = ref<Quote | null>(null);
-const period = ref<KlinePeriod>("day");
 const source = ref<SourceName>("auto");
 let refreshTimer: number | null = null;
 
 const isCrypto = computed(() => props.assetClass === "crypto");
 const changeAmount = computed(() => quote.value ? quote.value.now - quote.value.yesterday : 0);
-
-// TradingView interval 映射
-const tvInterval = computed(() => {
-  if (period.value === "week") return "W";
-  if (period.value === "month") return "M";
-  return "D";
-});
 
 // 读取当前主题
 const theme = ref<"light" | "dark">(
@@ -100,14 +92,6 @@ onBeforeUnmount(() => {
 
       <!-- 工具栏 -->
       <div class="chart-toolbar">
-        <div class="toolbar-left">
-          <div class="ui-segmented">
-            <button v-for="p in (['day','week','month'] as KlinePeriod[])" :key="p"
-              :class="['ui-segmented-btn', { active: period === p }]" @click="period = p">
-              {{ p === 'day' ? '日K' : p === 'week' ? '周K' : '月K' }}
-            </button>
-          </div>
-        </div>
         <div class="toolbar-right">
           <select v-if="!isCrypto" v-model="source" class="ui-select">
             <option value="auto">自动兜底</option>
@@ -129,7 +113,7 @@ onBeforeUnmount(() => {
         <TradingViewChart
           :code="props.code"
           :asset-class="props.assetClass"
-          :interval="tvInterval"
+          interval="D"
           :theme="theme"
         />
       </div>
@@ -169,12 +153,11 @@ onBeforeUnmount(() => {
 .stat-val { font-size: 14px; font-weight: 500; color: var(--color-fg); }
 
 .chart-toolbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-end;
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap; gap: var(--space-2); background: var(--color-muted);
 }
-.toolbar-left { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .toolbar-right { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 
 .chart-area {

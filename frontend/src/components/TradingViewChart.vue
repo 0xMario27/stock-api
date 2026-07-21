@@ -79,7 +79,6 @@ async function createWidget() {
     hotlist: false,
     calendar: false,
     studies: ["MASimple@tv-basicstudies", "MAExp@tv-basicstudies"],
-    supported_resolutions: ["D", "W", "M"],
   });
 }
 
