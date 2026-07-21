@@ -85,38 +85,38 @@ function viewDetail(code: string): void {
 function isValidCode(query: string): boolean {
   const u = query.trim().toUpperCase();
   if (u.length < 4) return false;
-  // SH/SZ + 4-6 位数字
   if (/^SH\d{4,6}$/.test(u) || /^SZ\d{4,6}$/.test(u)) return true;
-  // HK/US/FUT/COM/OPT 前缀 + 至少 1 位
   for (const p of ["HK", "US", "FUT", "COM", "OPT"]) {
     if (u.startsWith(p) && u.length > p.length + 1) return true;
   }
   return false;
 }
 
-/* 尝试从查询构造候选代码（期货/商品模糊匹配） */
-function tryConstructCodes(query: string): string[] {
+/* 为搜索 API 覆盖不到的市场类型构造候选代码 */
+function constructCandidates(query: string): string[] {
   const u = query.trim().toUpperCase();
   const candidates: string[] = [];
 
-  // 期货合约模式: IF/IC/IH + 4 位数字 -> 自动加 FUT 前缀
-  if (/^(IF|IC|IH|IM)\d{4}$/.test(u)) {
-    candidates.push("FUT" + u);
-  }
-  // 纯数字 2-4 位 -> 尝试期货前缀
+  // 纯数字: 尝试期货前缀
   if (/^\d{2,4}$/.test(u)) {
-    for (const p of ["IF", "IC", "IH"]) {
-      candidates.push("FUT" + p + u);
-    }
+    for (const p of ["IF", "IC", "IH", "IM"]) candidates.push("FUT" + p + u);
   }
-  // 大写字母 3-5 位 -> 尝试商品前缀
+  // 字母: 尝试商品/期权
   if (/^[A-Z]{3,5}$/.test(u)) {
     candidates.push("COM" + u);
+    candidates.push("OPT" + u);
   }
-  // 字母+数字 2-6 位 -> 尝试 FUT + COM
-  if (/^[A-Z]{1,4}\d{2,4}$/.test(u) && u.length >= 3) {
+  // 字母+数字: 期货/商品/期权
+  if (/^[A-Z]{2,4}\d{2,4}$/.test(u) && u.length >= 4) {
     candidates.push("FUT" + u);
     candidates.push("COM" + u);
+    candidates.push("OPT" + u);
+  }
+  // 数字: 也尝试 A 股股票代码（用户可能打部分股票代码）
+  if (/^\d{4,6}$/.test(u)) {
+    candidates.push("SH" + u);
+    candidates.push("SZ" + u);
+    candidates.push("US" + u);
   }
 
   return candidates;
@@ -129,7 +129,7 @@ async function doSearch(): Promise<void> {
     return;
   }
 
-  // 合法代码格式：直接添加到自选，不查搜索 API
+  // 精确代码: 直接添加
   if (isValidCode(query)) {
     store.addCode(query);
     store.refreshOne(query);
@@ -138,24 +138,27 @@ async function doSearch(): Promise<void> {
     return;
   }
 
-  // 尝试用候选代码直接匹配（期货/商品模糊搜索）
-  const candidates = tryConstructCodes(query);
-  if (candidates.length > 0) {
-    searchResults.value = candidates
-      .slice(0, 10)
-      .map((code) => ({ code, name: code, market: null, asset_class: store.assetClass }));
-    return;
-  }
-
   searching.value = true;
+  const apiResults: StockSymbol[] = [];
   try {
-    searchResults.value = await searchSymbols(query, store.source, store.assetClass);
+    // 1. 搜索 API（覆盖股票/指数/基金/加密）
+    apiResults.push(...(await searchSymbols(query, store.source, store.assetClass)));
   } catch (e) {
     ElMessage.error("搜索失败：" + (e instanceof Error ? e.message : String(e)));
-    searchResults.value = [];
-  } finally {
-    searching.value = false;
   }
+
+  // 2. 构造候选代码（覆盖期货/商品/期权/其他）
+  const apiCodes = new Set(apiResults.map((r) => r.code));
+  const constructed: StockSymbol[] = [];
+  for (const code of constructCandidates(query)) {
+    if (!apiCodes.has(code) && constructed.length < 10) {
+      constructed.push({ code, name: code, market: null, asset_class: store.assetClass });
+    }
+  }
+
+  // 3. 合并结果
+  searchResults.value = [...apiResults, ...constructed];
+  searching.value = false;
 }
 
 function addFromSearch(code: string): void {
