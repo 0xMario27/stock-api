@@ -128,23 +128,38 @@ function detectMarket(code: string): Market | null {
 function constructCandidates(query: string): StockSymbol[] {
   const u = query.trim().toUpperCase();
   const codes: string[] = [];
+  const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 
+  // 纯数字: 期货模糊匹配（补月份）+ A股/美股猜测
   if (/^\d{2,4}$/.test(u)) {
-    for (const p of ["IF", "IC", "IH", "IM"]) codes.push("FUT" + p + u);
+    if (u.length === 2) {
+      // 年份 -> 尝试所有月份
+      for (const m of months) {
+        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + m);
+      }
+    } else if (u.length === 3) {
+      // 年份(少一位) -> 大概率是输入了年份，末尾补月份数字
+      for (const m of months) {
+        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + m.slice(0, 1));
+      }
+    } else {
+      // 4位 = YYMM 精确匹配
+      for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u);
+    }
+    codes.push("SH" + u);
+    codes.push("SZ" + u);
+    codes.push("US" + u);
   }
+  // 字母: 尝试商品/期权
   if (/^[A-Z]{3,5}$/.test(u)) {
     codes.push("COM" + u);
     codes.push("OPT" + u);
   }
+  // 字母+数字: 期货/商品/期权
   if (/^[A-Z]{2,4}\d{2,4}$/.test(u) && u.length >= 4) {
     codes.push("FUT" + u);
     codes.push("COM" + u);
     codes.push("OPT" + u);
-  }
-  if (/^\d{4,6}$/.test(u)) {
-    codes.push("SH" + u);
-    codes.push("SZ" + u);
-    codes.push("US" + u);
   }
 
   return codes.map((code) => ({
@@ -299,7 +314,10 @@ onBeforeUnmount(() => {
           >
             <span class="search-tag-code">{{ item.code }}</span>
             <span class="search-tag-name">{{ item.name }}</span>
-            <span class="search-tag-market">{{ marketLabel[item.market || ""] || "?" }}</span>
+            <span
+              v-if="item.market"
+              :class="['market-badge', marketBadgeClass[item.market] || '']"
+            >{{ marketLabel[item.market] || "?" }}</span>
           </button>
         </div>
       </div>
@@ -367,11 +385,13 @@ onBeforeUnmount(() => {
               @click="viewDetail(quote.code)"
             >
               <td class="col-code">
-                <span class="text-mono">{{ quote.code }}</span>
-                <span
-                  v-if="quote.market"
-                  :class="['market-badge', marketBadgeClass[quote.market] || '']"
-                >{{ marketLabel[quote.market] || "?" }}</span>
+                <div class="code-cell">
+                  <span class="text-mono">{{ quote.code }}</span>
+                  <span
+                    v-if="quote.market"
+                    :class="['market-badge', marketBadgeClass[quote.market] || '']"
+                  >{{ marketLabel[quote.market] || "?" }}</span>
+                </div>
               </td>
               <td class="col-name">{{ quote.name }}</td>
               <td class="col-price ta-right text-mono">{{ formatPrice(quote.now) }}</td>
@@ -497,16 +517,6 @@ onBeforeUnmount(() => {
   color: var(--color-fg-secondary);
 }
 
-.search-tag-market {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  color: var(--color-fg-muted);
-  letter-spacing: 0.05em;
-}
-
 /* 卡片标题（卡片本身用 .ui-card 共享类） */
 .card-title {
   display: flex;
@@ -598,6 +608,9 @@ onBeforeUnmount(() => {
 
 .col-code {
   font-weight: 600;
+}
+
+.code-cell {
   display: flex;
   align-items: center;
   gap: 6px;
