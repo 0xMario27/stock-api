@@ -202,10 +202,10 @@ def _sina_format(market_prefix: str, value: str) -> str:
 
 
 class EastmoneyCodeMapper:
-    """东方财富: SH->1. SZ->0. (仅 A 股)"""
+    """东方财富: SH->1. SZ->0., FUT->220./113., COM->122."""
 
     def __init__(self) -> None:
-        self._unknown_error = "东方财富仅支持 A 股代码（SH/SZ 前缀）"
+        self._unknown_error = "东方财富不支持此代码前缀"
 
     def transform(self, code: str) -> str:
         upper = code.upper()
@@ -213,6 +213,15 @@ class EastmoneyCodeMapper:
             return f"1.{upper[len(COMMON_SH):]}"
         if upper.startswith(COMMON_SZ):
             return f"0.{upper[len(COMMON_SZ):]}"
+        if upper.startswith(COMMON_FUT):
+            inner = upper[len(COMMON_FUT):]
+            # CFFEX 股指期货: IF/IC/IH/IM -> 220
+            if inner[:2] in ("IF", "IC", "IH", "IM"):
+                return f"220.{inner}"
+            # 其他国内期货默认 DCE (113)
+            return f"113.{inner}"
+        if upper.startswith(COMMON_COM):
+            return f"122.{upper[len(COMMON_COM):]}"
         raise StockCodeError(self._unknown_error)
 
     def transforms(self, codes: list[str]) -> list[str]:

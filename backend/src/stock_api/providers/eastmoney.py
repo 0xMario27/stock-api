@@ -21,7 +21,7 @@ from stock_api.core.models import (
     Symbol,
     default_quote,
 )
-from stock_api.market.codes import EastmoneyCodeMapper, normalize_codes
+from stock_api.market.codes import EastmoneyCodeMapper, detect_market, normalize_codes
 from stock_api.market.kline import create_kline, normalize_kline_options
 from stock_api.providers._shared import create_inspection
 from stock_api.utils.http import fetch_json
@@ -84,7 +84,7 @@ class EastmoneyProvider(DataProvider):
 
     name = "eastmoney"
     asset_class = AssetClass.STOCK
-    supported_markets = [Market.CN_A]
+    supported_markets = [Market.CN_A, Market.INDEX, Market.FUND, Market.FUTURE, Market.COMMODITY]
 
     def __init__(self) -> None:
         self._code_mapper = EastmoneyCodeMapper()
@@ -237,7 +237,7 @@ def _parse_eastmoney_quote(code: str, quote_data: dict[str, Any]) -> Quote:
         percent=percent,
         source="eastmoney",
         asset_class=AssetClass.STOCK,
-        market=Market.CN_A,
+        market=detect_market(code),
     )
 
 
