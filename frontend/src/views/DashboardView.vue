@@ -326,7 +326,9 @@ onBeforeUnmount(() => {
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">资产</span>
-              <span class="mini-val">{{ card.assetClass === "crypto" ? "加密" : "股票" }}</span>
+              <span :class="['market-badge', card.assetClass === 'crypto' ? 'market-crypto' : 'asset-stock']">
+                {{ card.assetClass === "crypto" ? "加密" : "股票" }}
+              </span>
             </div>
           </div>
         </div>
@@ -419,6 +421,7 @@ onBeforeUnmount(() => {
 .market-option { background: rgba(14,165,233,0.15); color: #0EA5E9; }
 .market-commodity { background: rgba(217,119,6,0.15); color: #D97706; }
 .market-crypto { background: rgba(139,92,246,0.15); color: var(--color-accent); }
+.asset-stock { background: rgba(59,130,246,0.15); color: var(--color-primary); }
 
 .card-remove {
   display: flex; align-items: center; justify-content: center;
