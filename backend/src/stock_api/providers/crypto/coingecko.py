@@ -223,6 +223,8 @@ class CoinGeckoProvider(DataProvider):
             source=self.name,
             asset_class=AssetClass.CRYPTO,
             market=Market.CRYPTO,
+            market_cap=_num_or_none(item.get("market_cap")),
+            volume=_num_or_none(item.get("total_volume")),
         )
 
     def _period_to_days(self, period: KlinePeriod, count: int) -> str:
@@ -360,3 +362,13 @@ def _number(value: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return result if result == result else 0.0
+
+
+def _num_or_none(value: Any) -> float | None:
+    if value is None or value == "" or value == "-":
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result == result else None

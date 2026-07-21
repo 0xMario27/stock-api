@@ -26,7 +26,7 @@ from stock_api.market.kline import create_kline, normalize_kline_options
 from stock_api.providers._shared import create_inspection
 from stock_api.utils.http import fetch_json
 
-_QUOTE_FIELDS = "f43,f44,f45,f57,f58,f60,f170"
+_QUOTE_FIELDS = "f2,f3,f14,f15,f16,f18,f43,f44,f45,f46,f47,f48,f51,f52,f57,f58,f60,f116,f117,f162,f167,f170"
 _KLINE_FIELDS = "f51,f52,f53,f54,f55,f56"
 _SUGGEST_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
 _REQUEST_TIMEOUT = 4.0
@@ -227,6 +227,17 @@ def _parse_eastmoney_quote(code: str, quote_data: dict[str, Any]) -> Quote:
     else:
         percent = 0.0
 
+    open_price = _number_value_or_none(quote_data.get("f46"))
+    volume_shou = _number_value_or_none(quote_data.get("f47"))
+    volume = volume_shou * 100 if volume_shou else None
+    turnover = _number_value_or_none(quote_data.get("f48"))
+    pe = _number_value_or_none(quote_data.get("f162"))
+    pb = _number_value_or_none(quote_data.get("f167"))
+    mcap = _number_value_or_none(quote_data.get("f116"))
+    cmcap = _number_value_or_none(quote_data.get("f117"))
+    h52 = _number_value_or_none(quote_data.get("f51"))
+    l52 = _number_value_or_none(quote_data.get("f52"))
+
     return Quote(
         code=code.upper(),
         name=str(quote_data.get("f58") or quote_data.get("f14") or "---"),
@@ -238,7 +249,27 @@ def _parse_eastmoney_quote(code: str, quote_data: dict[str, Any]) -> Quote:
         source="eastmoney",
         asset_class=AssetClass.STOCK,
         market=detect_market(code),
+        open_price=open_price,
+        volume=volume,
+        turnover=turnover,
+        pe_ratio=pe,
+        pb_ratio=pb,
+        market_cap=mcap,
+        circulating_cap=cmcap,
+        high_52w=h52,
+        low_52w=l52,
     )
+
+
+def _number_value_or_none(value: Any) -> float | None:
+    """类似 _number_value 但保留 None（用于可选字段）。"""
+    if value is None or value == "-" or value == "":
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result == result else None
 
 
 def _number_value(value: Any) -> float:

@@ -74,6 +74,13 @@ function formatVolume(v: number | null | undefined): string {
   if (v >= 1e4) return (v / 1e4).toFixed(2) + "万";
   return v.toFixed(0);
 }
+function formatMoney(v: number | null | undefined): string {
+  if (!v || v === 0) return "-";
+  if (v >= 1e12) return (v / 1e12).toFixed(2) + "万亿";
+  if (v >= 1e8) return (v / 1e8).toFixed(2) + "亿";
+  if (v >= 1e4) return (v / 1e4).toFixed(2) + "万";
+  return v.toFixed(2);
+}
 function priceClass(p: number): string { return p > 0 ? "text-up" : p < 0 ? "text-down" : "text-flat"; }
 function viewDetail(code: string, ac: string): void { router.push(`/stock/${code}?asset_class=${ac}`); }
 function removeCard(code: string, ac: string): void {
@@ -279,7 +286,7 @@ onBeforeUnmount(() => {
           <div class="card-stats">
             <div class="mini-stat">
               <span class="mini-lbl">开盘</span>
-              <span class="mini-val text-mono">{{ formatPrice(card.quote.yesterday) }}</span>
+              <span class="mini-val text-mono">{{ card.quote.open_price ? formatPrice(card.quote.open_price) : "-" }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">最高</span>
@@ -292,6 +299,26 @@ onBeforeUnmount(() => {
             <div class="mini-stat">
               <span class="mini-lbl">振幅</span>
               <span class="mini-val text-mono">{{ card.quote.yesterday ? ((card.quote.high - card.quote.low) / card.quote.yesterday * 100).toFixed(2) : "0.00" }}%</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-lbl">成交量</span>
+              <span class="mini-val text-mono">{{ formatVolume(card.quote.volume) }}</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-lbl">成交额</span>
+              <span class="mini-val text-mono">{{ card.quote.turnover ? formatMoney(card.quote.turnover) : "-" }}</span>
+            </div>
+            <div v-if="card.quote.pe_ratio" class="mini-stat">
+              <span class="mini-lbl">市盈率</span>
+              <span class="mini-val text-mono">{{ card.quote.pe_ratio.toFixed(2) }}</span>
+            </div>
+            <div v-if="card.quote.pb_ratio" class="mini-stat">
+              <span class="mini-lbl">市净率</span>
+              <span class="mini-val text-mono">{{ card.quote.pb_ratio.toFixed(2) }}</span>
+            </div>
+            <div v-if="card.quote.market_cap" class="mini-stat">
+              <span class="mini-lbl">总市值</span>
+              <span class="mini-val text-mono">{{ formatMoney(card.quote.market_cap) }}</span>
             </div>
             <div class="mini-stat">
               <span class="mini-lbl">数据源</span>
@@ -420,7 +447,7 @@ onBeforeUnmount(() => {
 .return-val { font-size: 13px; font-weight: 700; }
 
 .card-stats {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px 8px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px 8px;
   padding-top: var(--space-3); border-top: 1px solid var(--color-border-light);
 }
 .mini-stat { display: flex; flex-direction: column; gap: 1px; }

@@ -64,6 +64,7 @@ class Quote(BaseModel):
     """标准化行情报价。对应原 TS 的 Stock。
 
     所有数据源的行情返回都归一化为此结构。provider-specific 原始字段不暴露。
+    扩展字段为 Optional，数据源有则填充，无则为 null。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -78,6 +79,16 @@ class Quote(BaseModel):
     source: str = Field(default="base", description="实际返回数据的数据源")
     asset_class: AssetClass = Field(default=AssetClass.STOCK, description="资产类别")
     market: Market | None = Field(default=None, description="市场")
+    # 行情扩展字段（Optional = 数据源提供时填充）
+    open_price: float | None = Field(default=None, description="今日开盘价")
+    volume: float | None = Field(default=None, description="成交量（标准化单位：股票=股，加密=币）")
+    turnover: float | None = Field(default=None, description="成交额（标准化单位：股票=元，加密=USDT）")
+    pe_ratio: float | None = Field(default=None, description="市盈率（TTM）")
+    pb_ratio: float | None = Field(default=None, description="市净率")
+    market_cap: float | None = Field(default=None, description="总市值（元/USDT）")
+    circulating_cap: float | None = Field(default=None, description="流通市值（元/USDT）")
+    high_52w: float | None = Field(default=None, description="52周最高价")
+    low_52w: float | None = Field(default=None, description="52周最低价")
 
 
 class Kline(BaseModel):

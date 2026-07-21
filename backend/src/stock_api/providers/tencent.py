@@ -195,6 +195,14 @@ def _parse_tencent_quote(code: str, params: list[str]) -> Quote:
     yesterday = _number_at(params, 4)
     percent = now / yesterday - 1 if yesterday else 0.0
 
+    open_price = _number_or_none_at(params, 5)
+    volume_shou = _number_or_none_at(params, 6)
+    volume = volume_shou * 100 if volume_shou else None
+    turnover_wan = _number_or_none_at(params, 37)
+    turnover = turnover_wan * 10000 if turnover_wan else None
+    pe = _number_or_none_at(params, 39)
+    pb = _number_or_none_at(params, 43)
+
     return Quote(
         code=code.upper(),
         name=str(params[1]) if len(params) > 1 else "---",
@@ -206,6 +214,11 @@ def _parse_tencent_quote(code: str, params: list[str]) -> Quote:
         source="tencent",
         asset_class=AssetClass.STOCK,
         market=detect_market(code),
+        open_price=open_price,
+        volume=volume,
+        turnover=turnover,
+        pe_ratio=pe,
+        pb_ratio=pb,
     )
 
 
@@ -216,6 +229,15 @@ def _number_at(params: list[str], index: int) -> float:
         return float(params[index]) if params[index] else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _number_or_none_at(params: list[str], index: int) -> float | None:
+    if index >= len(params):
+        return None
+    try:
+        return float(params[index]) if params[index] and params[index] != "-" else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _parse_search_codes(body: str) -> list[str]:

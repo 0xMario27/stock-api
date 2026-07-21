@@ -175,6 +175,13 @@ class YahooProvider(DataProvider):
             source=self.name,
             asset_class=ac,
             market=market,
+            open_price=_num_or_none(meta.get("regularMarketOpen")),
+            volume=_num_or_none(meta.get("regularMarketVolume")),
+            pe_ratio=_num_or_none(meta.get("trailingPE")),
+            pb_ratio=_num_or_none(meta.get("priceToBook")),
+            market_cap=_num_or_none(meta.get("marketCap")),
+            high_52w=_num_or_none(meta.get("fiftyTwoWeekHigh")),
+            low_52w=_num_or_none(meta.get("fiftyTwoWeekLow")),
         )
 
     async def get_klines(self, code: str, options: KlineOptions | None = None) -> list[Kline]:
@@ -310,3 +317,13 @@ def _num(value: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return result if result == result else 0.0
+
+
+def _num_or_none(value: Any) -> float | None:
+    if value is None or value == "" or value == "-":
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result == result else None

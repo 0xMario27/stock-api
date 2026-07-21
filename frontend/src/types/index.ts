@@ -18,6 +18,15 @@ export interface Quote {
   source: string;
   asset_class: AssetClass;
   market: Market | null;
+  open_price?: number | null;
+  volume?: number | null;
+  turnover?: number | null;
+  pe_ratio?: number | null;
+  pb_ratio?: number | null;
+  market_cap?: number | null;
+  circulating_cap?: number | null;
+  high_52w?: number | null;
+  low_52w?: number | null;
 }
 
 export interface Kline {

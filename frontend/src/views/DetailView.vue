@@ -55,6 +55,19 @@ function formatPrice(p: number): string {
 }
 function formatPercent(p: number): string { return (p>0?"+":"")+(p*100).toFixed(2)+"%"; }
 function formatAmount(a: number): string { return (a>0?"+":"")+formatPrice(Math.abs(a)); }
+function formatVolume(v: number | null | undefined): string {
+  if (!v || v === 0) return "-";
+  if (v >= 1e8) return (v / 1e8).toFixed(2) + "亿";
+  if (v >= 1e4) return (v / 1e4).toFixed(2) + "万";
+  return v.toFixed(0);
+}
+function formatMoney(v: number | null | undefined): string {
+  if (!v || v === 0) return "-";
+  if (v >= 1e12) return (v / 1e12).toFixed(2) + "万亿";
+  if (v >= 1e8) return (v / 1e8).toFixed(2) + "亿";
+  if (v >= 1e4) return (v / 1e4).toFixed(2) + "万";
+  return v.toFixed(2);
+}
 function priceClass(p: number): string { return p>0?"text-up":p<0?"text-down":"text-flat"; }
 
 async function loadQuote() { try { quote.value = await getQuote(props.code, source.value, props.assetClass); } catch {} }
@@ -140,9 +153,20 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="quote-stats-bar">
+          <div class="stat-cell"><span class="stat-label">开盘</span><span class="stat-val text-mono">{{ quote.open_price ? formatPrice(quote.open_price) : "-" }}</span></div>
           <div class="stat-cell"><span class="stat-label">昨收</span><span class="stat-val text-mono">{{ formatPrice(quote.yesterday) }}</span></div>
           <div class="stat-cell"><span class="stat-label">最高</span><span class="stat-val text-mono text-up">{{ formatPrice(quote.high) }}</span></div>
           <div class="stat-cell"><span class="stat-label">最低</span><span class="stat-val text-mono text-down">{{ formatPrice(quote.low) }}</span></div>
+          <div class="stat-cell"><span class="stat-label">成交量</span><span class="stat-val text-mono">{{ formatVolume(quote.volume) }}</span></div>
+          <div class="stat-cell"><span class="stat-label">成交额</span><span class="stat-val text-mono">{{ quote.turnover ? formatMoney(quote.turnover) : "-" }}</span></div>
+        </div>
+        <div v-if="quote.pe_ratio || quote.pb_ratio || quote.market_cap || quote.high_52w" class="fundamental-bar">
+          <div v-if="quote.pe_ratio" class="stat-cell"><span class="stat-label">PE (TTM)</span><span class="stat-val text-mono">{{ quote.pe_ratio.toFixed(2) }}</span></div>
+          <div v-if="quote.pb_ratio" class="stat-cell"><span class="stat-label">PB</span><span class="stat-val text-mono">{{ quote.pb_ratio.toFixed(2) }}</span></div>
+          <div v-if="quote.market_cap" class="stat-cell"><span class="stat-label">总市值</span><span class="stat-val text-mono">{{ formatMoney(quote.market_cap) }}</span></div>
+          <div v-if="quote.circulating_cap" class="stat-cell"><span class="stat-label">流通市值</span><span class="stat-val text-mono">{{ formatMoney(quote.circulating_cap) }}</span></div>
+          <div v-if="quote.high_52w" class="stat-cell"><span class="stat-label">52周高</span><span class="stat-val text-mono text-up">{{ formatPrice(quote.high_52w) }}</span></div>
+          <div v-if="quote.low_52w" class="stat-cell"><span class="stat-label">52周低</span><span class="stat-val text-mono text-down">{{ formatPrice(quote.low_52w) }}</span></div>
         </div>
       </div>
 
@@ -226,6 +250,8 @@ onBeforeUnmount(() => {
 .stat-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .stat-label { font-size: 10px; color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .stat-val { font-size: 14px; font-weight: 500; color: var(--color-fg); }
+
+.fundamental-bar { display: flex; gap: var(--space-5); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px dashed var(--color-border-light); }
 
 .chart-toolbar {
   display: flex; align-items: center; justify-content: space-between;

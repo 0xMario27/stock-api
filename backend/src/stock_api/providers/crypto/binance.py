@@ -279,6 +279,9 @@ class BinanceProvider(DataProvider):
             source=self.name,
             asset_class=AssetClass.CRYPTO,
             market=Market.CRYPTO,
+            open_price=_num_or_none(ticker.get("openPrice")),
+            volume=_num_or_none(ticker.get("volume")),
+            turnover=_num_or_none(ticker.get("quoteVolume")),
         )
 
     def _period_to_interval(self, period: KlinePeriod) -> str:
@@ -324,3 +327,13 @@ def _num(value: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return result if result == result else 0.0
+
+
+def _num_or_none(value: Any) -> float | None:
+    if value is None or value == "" or value == "-":
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result == result else None

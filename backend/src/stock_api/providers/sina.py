@@ -70,13 +70,13 @@ def _is_intraday(period: KlinePeriod) -> bool:
 # 新浪不同市场的字段位置。
 # 商品(hf_)格式特殊：name 在末尾，价格在开头
 _FIELD_MAP: dict[str, dict[str, int]] = {
-    COMMON_SH: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
-    COMMON_SZ: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
-    COMMON_HK: {"name": 1, "now": 6, "low": 5, "high": 4, "yesterday": 3},
-    COMMON_US: {"name": 0, "now": 1, "low": 7, "high": 6, "yesterday": 26},
-    "FU": {"name": 49, "now": 3, "low": 10, "high": 9, "yesterday": 2},
-    "CO": {"name": 13, "now": 0, "low": 5, "high": 4, "yesterday": 1},
-    "OP": {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2},
+    COMMON_SH: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2, "open": 1, "volume": 8, "turnover": 9},
+    COMMON_SZ: {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2, "open": 1, "volume": 8, "turnover": 9},
+    COMMON_HK: {"name": 1, "now": 6, "low": 5, "high": 4, "yesterday": 3, "open": 2, "volume": 8, "turnover": 9},
+    COMMON_US: {"name": 0, "now": 1, "low": 7, "high": 6, "yesterday": 26, "open": 5, "volume": 10},
+    "FU":     {"name": 49, "now": 3, "low": 10, "high": 9, "yesterday": 2, "open": 0, "volume": 12},
+    "CO":     {"name": 13, "now": 0, "low": 5, "high": 4, "yesterday": 1, "open": 2, "volume": 3},
+    "OP":     {"name": 0, "now": 3, "low": 5, "high": 4, "yesterday": 2, "open": 1, "volume": 8},
 }
 
 
@@ -200,6 +200,11 @@ def _parse_sina_quote(code: str, params: list[str]) -> Quote:
     yesterday = _number_at(params, fields["yesterday"])
     percent = now / yesterday - 1 if yesterday else 0.0
 
+    open_price = _number_or_none_at(params, fields.get("open", -1))
+    volume_shou = _number_or_none_at(params, fields.get("volume", -1))
+    volume = volume_shou * 100 if volume_shou else None
+    turnover = _number_or_none_at(params, fields.get("turnover", -1))
+
     return Quote(
         code=code.upper(),
         name=_string_at(params, fields["name"]),
@@ -211,16 +216,28 @@ def _parse_sina_quote(code: str, params: list[str]) -> Quote:
         source="sina",
         asset_class=AssetClass.STOCK,
         market=detect_market(code),
+        open_price=open_price,
+        volume=volume,
+        turnover=turnover,
     )
 
 
 def _number_at(params: list[str], index: int) -> float:
-    if index >= len(params):
+    if index >= len(params) or index < 0:
         return 0.0
     try:
         return float(params[index]) if params[index] else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _number_or_none_at(params: list[str], index: int) -> float | None:
+    if index < 0 or index >= len(params):
+        return None
+    try:
+        return float(params[index]) if params[index] and params[index] != "-" else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _string_at(params: list[str], index: int) -> str:
