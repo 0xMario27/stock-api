@@ -128,7 +128,12 @@ export const useStockStore = defineStore("stock", () => {
     try {
       const result = await getQuotes(watchlist.value, source.value, currentClass);
       if (generation !== refreshGeneration) return;
-      quotes.value = result;
+      // 合并：不覆盖 WS 实时数据（source === "binance_ws" 的 quote 保留）
+      const wsQuotes = new Map<string, Quote>();
+      for (const q of quotes.value) {
+        if (q.source === "binance_ws") wsQuotes.set(q.code, q);
+      }
+      quotes.value = result.map((q) => wsQuotes.get(q.code) ?? q);
       const allFailed = result.length > 0 && result.every((q) => q.source === "base");
       if (allFailed) {
         const label = currentClass === "crypto" ? "加密货币" : "股票";
@@ -233,7 +238,11 @@ export const useStockStore = defineStore("stock", () => {
       const result = await getQuotes(codes, "auto", ac);
       if (generation !== dashGeneration) return;
       for (const q of result) {
-        dashQuotes.value[`${ac}:${q.code}`] = q;
+        const key = `${ac}:${q.code}`;
+        // 保留 WS 实时数据（不覆盖 source=binance_ws 的更新）
+        const existing = dashQuotes.value[key];
+        if (existing && existing.source === "binance_ws") continue;
+        dashQuotes.value[key] = q;
       }
     } catch (e) {
       if (generation === dashGeneration) {
@@ -276,21 +285,38 @@ export const useStockStore = defineStore("stock", () => {
       initRealtime();
     }
     if (!realtime.value) return;
-    if (realtimeCodes.value.has(code)) return;
-    realtimeCodes.value.add(code);
+    if (!realtimeCodes.value.has(code)) {
+      realtimeCodes.value.add(code);
+      realtime.value.subscribe(code, (_code, data) => {
+        // 更新 watchlist quotes
+        const idx = quotes.value.findIndex((q) => q.code === code);
+        if (idx >= 0) {
+          quotes.value[idx] = { ...quotes.value[idx], ...data, source: "binance_ws" };
+        }
+        // 更新 dashboard quotes
+        const dashKey = `crypto:${code}`;
+        if (dashKey in dashQuotes.value) {
+          dashQuotes.value[dashKey] = { ...dashQuotes.value[dashKey]!, ...data, source: "binance_ws" };
+        }
+        // 更新 detail page 的实时回调
+        const cbs = realtimeDetailCallbacks.get(code);
+        if (cbs) cbs.forEach((cb) => cb(data));
+      });
+    }
+  }
 
-    realtime.value.subscribe(code, (_code, data) => {
-      // 更新 watchlist quotes
-      const idx = quotes.value.findIndex((q) => q.code === code);
-      if (idx >= 0) {
-        quotes.value[idx] = { ...quotes.value[idx], ...data, source: "binance_ws" };
-      }
-      // 更新 dashboard quotes
-      const dashKey = `crypto:${code}`;
-      if (dashKey in dashQuotes.value) {
-        dashQuotes.value[dashKey] = { ...dashQuotes.value[dashKey]!, ...data, source: "binance_ws" };
-      }
-    });
+  // Detail page 等外部组件注册的实时回调
+  const realtimeDetailCallbacks = new Map<string, Set<(data: any) => void>>();
+
+  function subscribeRealtimeCallback(code: string, cb: (data: any) => void): void {
+    if (!realtimeDetailCallbacks.has(code)) {
+      realtimeDetailCallbacks.set(code, new Set());
+    }
+    realtimeDetailCallbacks.get(code)!.add(cb);
+  }
+
+  function unsubscribeRealtimeCallback(code: string, cb: (data: any) => void): void {
+    realtimeDetailCallbacks.get(code)?.delete(cb);
   }
 
   function unsubscribeRealtime(code: string): void {
@@ -335,7 +361,9 @@ export const useStockStore = defineStore("stock", () => {
     realtimeConnected,
     initRealtime,
     subscribeRealtime,
+    subscribeRealtimeCallback,
     unsubscribeRealtime,
+    unsubscribeRealtimeCallback,
     disconnectRealtime,
   };
 });

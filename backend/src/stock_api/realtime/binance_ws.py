@@ -29,7 +29,7 @@ from stock_api.realtime.manager import get_pool
 
 logger = logging.getLogger("stock_api.realtime.binance")
 
-_BASE_WS = "wss://stream.binance.com:9443"
+_BASE_WS = "wss://stream.binance.com:443"
 
 # coin ID -> Binance 交易对
 _CRYPTO_MAP: dict[str, str] = {

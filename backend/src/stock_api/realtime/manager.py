@@ -117,13 +117,36 @@ class WSConnection:
         self._health.status = ConnectionStatus.DISCONNECTED
 
     async def add_streams(self, streams: list[str]) -> None:
-        """动态添加订阅（需要重连以更新 URL）。"""
+        """动态添加订阅。
+
+        优先使用 Binance SUBSCRIBE 方法（无需重连）；
+        如果连接未建立则等 start 时统一订阅。
+        """
         new_streams = [s for s in streams if s not in self._streams]
         if not new_streams:
             return
         self._streams.update(new_streams)
-        # 重连以订阅新的 streams
-        await self._reconnect()
+
+        # 如果连接已建立，发送 SUBSCRIBE 消息（无需重连）
+        if self._ws and self._health.status == ConnectionStatus.CONNECTED:
+            try:
+                sub_msg = json.dumps({
+                    "method": "SUBSCRIBE",
+                    "params": new_streams,
+                    "id": int(time.time() * 1000) % 1000000,
+                })
+                await self._ws.send(sub_msg)
+                logger.info(f"[{self.name}] dynamically subscribed: {new_streams}")
+                return
+            except Exception as e:
+                logger.warning(f"[{self.name}] SUBSCRIBE failed, falling back to reconnect: {e}")
+
+        # 连接未建立或 SUBSCRIBE 失败：走 start 路径
+        if not self._running:
+            await self.start(new_streams)
+        elif not self._ws:
+            # running 但 ws 为空（正在重连），_run 循环会用最新 _streams 重连
+            pass
 
     async def _run(self) -> None:
         """主循环：连接 -> 收消息 -> 断线重连。"""

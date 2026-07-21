@@ -121,7 +121,6 @@ async def realtime_endpoint(ws: WebSocket) -> None:
 
 
 @asynccontextmanager
-@asynccontextmanager
 async def realtime_lifespan():
     """FastAPI lifespan: 启动时初始化，关闭时清理。"""
     await ensure_init()

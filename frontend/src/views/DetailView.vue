@@ -2,12 +2,14 @@
 import { onMounted, onBeforeUnmount, ref, watch, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { getKlines, getQuote } from "@/api";
+import { useStockStore } from "@/stores/stock";
 import type { AssetClass, Kline, KlineAdjust, KlinePeriod, Quote, SourceName } from "@/types";
 import { TVChartManager, type IndicatorState, type ChartColors } from "@/utils/tvChart";
 import { ChevronLeft } from "lucide-vue-next";
 
 const props = defineProps<{ code: string; assetClass: AssetClass }>();
 const router = useRouter();
+const store = useStockStore();
 
 const quote = ref<Quote | null>(null);
 const klines = ref<Kline[]>([]);
@@ -109,18 +111,46 @@ function goInspect() { router.push("/inspect/" + props.code + "?asset_class=" + 
 watch(() => props.code, () => { loadQuote(); loadKlines(); });
 watch([period, adjust, source], () => loadKlines());
 
+// 实时推送：crypto 订阅 WS，回调更新本页 quote
+let realtimeCb: ((data: any) => void) | null = null;
+
+function setupRealtime(code: string) {
+  cleanupRealtime();
+  if (!isCrypto.value) return;
+  store.subscribeRealtime(code);
+  realtimeCb = (data: any) => {
+    if (quote.value) {
+      quote.value = { ...quote.value, ...data, source: "binance_ws" };
+    }
+  };
+  store.subscribeRealtimeCallback(code, realtimeCb);
+}
+
+function cleanupRealtime() {
+  if (realtimeCb && props.code) {
+    store.unsubscribeRealtimeCallback(props.code, realtimeCb);
+    realtimeCb = null;
+  }
+}
+
+watch(() => props.code, (newCode) => {
+  if (newCode) setupRealtime(newCode);
+});
+
 onMounted(() => {
   if (chartContainer.value) {
     tvChart = new TVChartManager(indicators.value, getColors());
     tvChart.mount(chartContainer.value);
   }
   loadQuote(); loadKlines(); startAutoRefresh();
+  setupRealtime(props.code);
   themeObserver = new MutationObserver(() => { if (tvChart) tvChart.updateColors(getColors()); });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-color-rule"] });
 });
 
 onBeforeUnmount(() => {
   stopAutoRefresh();
+  cleanupRealtime();
   themeObserver?.disconnect(); themeObserver = null;
   tvChart?.destroy(); tvChart = null;
 });
