@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: stock-api-backend
     restart: unless-stopped
+    command: ["uvicorn", "stock_api.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--ws", "auto"]
     ports:
       - "8000:8000"
     environment:

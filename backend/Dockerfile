@@ -19,6 +19,7 @@ COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --no-dev --no-install-project
 
 COPY src/ ./src/
+COPY gunicorn_conf.py ./
 RUN uv sync --no-dev
 
 # 第二阶段：运行时镜像
@@ -35,6 +36,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
 COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+COPY --from=builder /app/gunicorn_conf.py /app/gunicorn_conf.py
 
 RUN chown -R appuser:appuser /app
 USER appuser
@@ -44,4 +46,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
 
-CMD ["uvicorn", "stock_api.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--ws", "auto"]
+# 生产环境用 gunicorn 多 worker，开发用 uvicorn 单进程热重载
+CMD ["gunicorn", "-c", "gunicorn_conf.py", "stock_api.api.app:app"]

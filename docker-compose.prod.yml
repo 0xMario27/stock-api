@@ -1,0 +1,66 @@
+# 生产环境 Docker Compose 配置
+#
+# 部署到日本 Linux 服务器，对外端口 8002。
+#
+# 用法:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# 环境变量（可选，通过 .env 文件或 -e 参数设置）:
+#   GUNICORN_WORKERS  - gunicorn worker 数量（默认: CPU*2+1）
+#   LOG_LEVEL         - 日志级别（默认: info）
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stock-api-backend
+    restart: always
+    expose:
+      - "8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-3}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+        reservations:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - stock-api-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stock-api-frontend
+    restart: always
+    ports:
+      - "${PROD_PORT:-8002}:80"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - stock-api-net
+
+networks:
+  stock-api-net:
+    driver: bridge

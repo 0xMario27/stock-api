@@ -43,3 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api", tags=["stock"])
     app.include_router(ws_router, tags=["realtime"])
     return app
+
+
+# 模块级实例，供 gunicorn 直接引用
+app = create_app()

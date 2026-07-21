@@ -1,4 +1,4 @@
-.PHONY: help install install-dev dev dev-backend dev-frontend build lint lint-fix typecheck check test test-unit docker-build docker-up docker-down docker-rebuild docker-logs clean cli mcp
+.PHONY: help install install-dev dev dev-backend dev-frontend build lint lint-fix typecheck check test test-unit docker-build docker-up docker-down docker-rebuild docker-logs docker-prod docker-prod-down clean cli mcp
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -105,6 +105,16 @@ docker-logs: ## 查看容器日志（实时）
 
 docker-restart: ## 重启 Docker 容器
 	docker compose restart
+
+# 生产环境（端口 8002，gunicorn 多 worker）
+docker-prod: ## 构建并启动生产环境（端口 8002）
+	docker compose -f docker-compose.prod.yml up -d --build
+	@printf "$(GREEN)✓ 生产环境已启动$(RESET)\n"
+	@printf "  前端面板: http://localhost:8002\n"
+	@printf "  API 文档: http://localhost:8002/api/docs\n"
+
+docker-prod-down: ## 停止生产环境
+	docker compose -f docker-compose.prod.yml down
 
 # ============================================================
 # CLI 便捷入口
