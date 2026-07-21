@@ -128,19 +128,21 @@ function detectMarket(code: string): Market | null {
 function constructCandidates(query: string): StockSymbol[] {
   const u = query.trim().toUpperCase();
   const codes: string[] = [];
-  const months = ["01","02","03","04","05","06","07","08","09","10","11","12"];
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1; // 1-12
 
-  // 纯数字: 期货模糊匹配（补月份）+ A股/美股猜测
+  // 纯数字: 期货模糊匹配 + A股/美股猜测
   if (/^\d{2,4}$/.test(u)) {
     if (u.length === 2) {
-      // 年份 -> 尝试所有月份
-      for (const m of months) {
-        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + m);
+      // 年份 -> 仅当前月及以后(减少无效候选)
+      for (let m = currentMonth; m <= 12; m++) {
+        const mm = String(m).padStart(2, "0");
+        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + mm);
       }
     } else if (u.length === 3) {
-      // 年份(少一位) -> 大概率是输入了年份，末尾补月份数字
-      for (const m of months) {
-        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + m.slice(0, 1));
+      // 年份+月份首数字 -> 补全月份个位 0-9
+      for (let d = 0; d <= 9; d++) {
+        for (const p of ["IF","IC","IH","IM"]) codes.push("FUT" + p + u + d);
       }
     } else {
       // 4位 = YYMM 精确匹配

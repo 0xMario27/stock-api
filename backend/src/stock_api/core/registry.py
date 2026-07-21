@@ -118,14 +118,18 @@ class AutoProvider(DataProvider):
         return []
 
     async def search_symbols(self, query: str) -> list[Symbol]:
+        seen: set[str] = set()
+        results: list[Symbol] = []
         for provider in self.providers:
             try:
                 symbols = await provider.search_symbols(query)
             except Exception:
                 continue
-            if symbols:
-                return symbols
-        return []
+            for s in symbols:
+                if s.code not in seen:
+                    seen.add(s.code)
+                    results.append(s)
+        return results
 
     async def inspect(self, code: str) -> AutoInspection:
         """跨源诊断：跑全部数据源，选第一个成功的作为最终 quote。"""

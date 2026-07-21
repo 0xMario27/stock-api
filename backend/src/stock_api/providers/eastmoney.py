@@ -261,4 +261,10 @@ def _parse_suggest_code(item: dict[str, Any]) -> str:
         return f"SH{code}"
     if market == "0":
         return f"SZ{code}"
+    # 期货市场: 220(CFFEX), 115(SHFE), 113(DCE), 114(CZCE), 116(GFEX), 118(INE)
+    if market in ("220", "115", "113", "114", "116", "118", "8"):
+        return f"FUT{code}"
+    # 外盘商品: 122(international)
+    if market == "122":
+        return f"COM{code}"
     return ""
