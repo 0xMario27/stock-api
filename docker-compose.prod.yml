@@ -1,7 +1,5 @@
 # 生产环境 Docker Compose 配置
 #
-# 部署到日本 Linux 服务器，对外端口 8002。
-#
 # 用法:
 #   docker compose -f docker-compose.prod.yml up -d --build
 #

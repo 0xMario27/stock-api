@@ -28,7 +28,7 @@ from stock_api.utils.http import fetch_json
 
 _QUOTE_FIELDS = "f2,f3,f14,f15,f16,f18,f43,f44,f45,f46,f47,f48,f51,f52,f57,f58,f60,f116,f117,f162,f167,f170"
 _KLINE_FIELDS = "f51,f52,f53,f54,f55,f56"
-_SUGGEST_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
+_SUGGEST_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"  # 东方财富公开前端 token，非私密凭据
 _REQUEST_TIMEOUT = 4.0
 _DEFAULT_PUSH2_HOST = "push2delay.eastmoney.com"
 _DEFAULT_PUSH2_HIS_HOST = "push2his.eastmoney.com"
