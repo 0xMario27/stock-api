@@ -15,7 +15,7 @@ const refreshTimer = ref<number | null>(null);
 const chartInstances = new Map<string, echarts.ECharts>();
 const lastUpdate = ref<string>("");
 
-const CARD_MIN_W = 300;
+const CARD_MIN_W = 240;
 const CARD_MAX_W = 900;
 const cardWidths = reactive<Record<string, number>>({});
 
@@ -95,7 +95,14 @@ let resizeStartW = 0;
 function startResize(e: MouseEvent, key: string): void {
   resizeCard = key;
   resizeStartX = e.clientX;
-  resizeStartW = cardWidths[key] || 0;
+  // 读取卡片当前实际宽度（未调整过的卡片取 DOM 宽度）
+  const saved = cardWidths[key];
+  if (saved) {
+    resizeStartW = saved;
+  } else {
+    const el = (e.currentTarget as HTMLElement).closest(".dash-card") as HTMLElement;
+    resizeStartW = el ? el.offsetWidth : CARD_MIN_W;
+  }
   document.addEventListener("mousemove", onResizeMove);
   document.addEventListener("mouseup", onResizeEnd);
   document.body.style.cursor = "ew-resize";
@@ -323,9 +330,9 @@ onBeforeUnmount(() => {
           <!-- 迷你走势图（含成交量） -->
           <div :id="'spark-' + getCardData(element).key" class="card-spark"></div>
 
-          <!-- 30日收益率 -->
+          <!-- 20日收益率 -->
           <div v-if="getCardData(element).return30d !== null" class="card-return-row">
-            <span class="return-lbl">30日收益</span>
+            <span class="return-lbl">20日收益</span>
             <span class="return-val text-mono" :class="priceClass(getCardData(element).return30d!)">{{ formatPercent(getCardData(element).return30d!) }}</span>
           </div>
 
@@ -439,7 +446,7 @@ onBeforeUnmount(() => {
 }
 
 .dash-card {
-  flex: 1 1 calc(25% - 12px); min-width: 280px; max-width: 100%;
+  flex: 1 1 calc(25% - 12px); min-width: 240px; max-width: 100%;
   padding: var(--space-5);
   cursor: pointer;
   position: relative;

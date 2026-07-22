@@ -68,6 +68,7 @@ export const useStockStore = defineStore("stock", () => {
   const dashSparklines = ref<Record<string, Kline[]>>({});
   const dashLoading = ref(false);
   const dashError = ref("");
+  const dashSparklineFetched = ref<Record<string, number>>({});
 
   let refreshGeneration = 0;
   let dashGeneration = 0;
@@ -214,24 +215,34 @@ export const useStockStore = defineStore("stock", () => {
     const stockCodes = dashItems.value.filter((d) => d.assetClass === "stock").map((d) => d.code);
     const cryptoCodes = dashItems.value.filter((d) => d.assetClass === "crypto").map((d) => d.code);
 
-    const tasks: Promise<void>[] = [];
-
+    // 1. 优先加载行情（批量 API，快）
+    const quoteTasks: Promise<void>[] = [];
     if (stockCodes.length > 0) {
-      tasks.push(fetchDashGroup(stockCodes, "stock", generation));
+      quoteTasks.push(fetchDashGroup(stockCodes, "stock", generation));
     }
     if (cryptoCodes.length > 0) {
-      tasks.push(fetchDashGroup(cryptoCodes, "crypto", generation));
+      quoteTasks.push(fetchDashGroup(cryptoCodes, "crypto", generation));
     }
+    await Promise.allSettled(quoteTasks);
 
-    // 为每个标的拉取迷你 K 线
-    for (const item of dashItems.value) {
-      tasks.push(fetchDashSparkline(item.code, item.assetClass, generation));
-    }
-
-    await Promise.allSettled(tasks);
-
+    // 行情加载完成即可交互
     if (generation === dashGeneration) {
       dashLoading.value = false;
+    }
+
+    // 2. 后台加载迷你 K 线（5 分钟内不重复请求）
+    const now = Date.now();
+    const SPARKLINE_TTL = 5 * 60 * 1000;
+    const sparklineTasks: Promise<void>[] = [];
+    for (const item of dashItems.value) {
+      const key = `${item.assetClass}:${item.code}`;
+      const last = dashSparklineFetched.value[key] || 0;
+      if (now - last > SPARKLINE_TTL) {
+        sparklineTasks.push(fetchDashSparkline(item.code, item.assetClass, generation));
+      }
+    }
+    if (sparklineTasks.length > 0) {
+      await Promise.allSettled(sparklineTasks);
     }
   }
 
@@ -255,9 +266,11 @@ export const useStockStore = defineStore("stock", () => {
 
   async function fetchDashSparkline(code: string, ac: AssetClass, generation: number): Promise<void> {
     try {
-      const result = await getKlines(code, { period: "day", count: 30, source: "auto" }, ac);
+      const result = await getKlines(code, { period: "day", count: 20, source: "auto" }, ac);
       if (generation !== dashGeneration) return;
-      dashSparklines.value[`${ac}:${code}`] = result;
+      const key = `${ac}:${code}`;
+      dashSparklines.value[key] = result;
+      dashSparklineFetched.value[key] = Date.now();
     } catch {
       // 迷你图失败不影响主数据
     }
