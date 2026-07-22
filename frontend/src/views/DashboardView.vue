@@ -3,7 +3,7 @@ import { onMounted, onBeforeUnmount, ref, computed, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useStockStore } from "@/stores/stock";
 import * as echarts from "echarts";
-import { RefreshCw, X, LayoutGrid, GripHorizontal, GripVertical, RotateCcw } from "lucide-vue-next";
+import { RefreshCw, X, LayoutGrid, GripHorizontal, GripVertical } from "lucide-vue-next";
 import draggable from "vuedraggable";
 import MarketBadge from "@/components/MarketBadge.vue";
 import type { Quote, Kline, AssetClass } from "@/types";
@@ -269,8 +269,8 @@ onBeforeUnmount(() => {
       </div>
       <div class="toolbar-right">
         <span class="auto-refresh-hint">每 30s 自动刷新</span>
-        <button class="ui-icon-btn" @click="resetLayout" title="恢复默认布局">
-          <RotateCcw :size="14" />
+        <button class="ui-btn ui-btn-sm" @click="resetLayout" title="恢复默认布局">
+          恢复布局
         </button>
         <button class="ui-icon-btn" @click="handleRefresh" :disabled="store.dashLoading" title="刷新">
           <RefreshCw :size="14" :class="{ 'anim-spin': store.dashLoading }" />

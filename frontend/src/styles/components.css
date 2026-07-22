@@ -104,6 +104,12 @@
   cursor: not-allowed;
 }
 
+.ui-btn-sm {
+  padding: 3px 10px;
+  font-size: 11px;
+  min-height: 28px;
+}
+
 .ui-btn-primary {
   background: var(--color-primary);
   border-color: var(--color-primary);
