@@ -439,7 +439,7 @@ onBeforeUnmount(() => {
 }
 
 .dash-card {
-  flex: 1 1 var(--card-min-w); min-width: 300px; max-width: 100%;
+  flex: 1 1 calc(25% - 12px); min-width: 280px; max-width: 100%;
   padding: var(--space-5);
   cursor: pointer;
   position: relative;
@@ -525,7 +525,7 @@ onBeforeUnmount(() => {
   .stats-bar { gap: var(--space-3); }
   .stat-block { min-width: 50px; }
   .stat-num { font-size: 16px; }
-  .dash-card { flex: 1 1 100%; min-width: unset; }
+  .dash-card { flex: 1 1 calc(50% - 8px); min-width: unset; }
   .card-spark { height: 70px; }
 }
 @media (max-width: 480px) {
