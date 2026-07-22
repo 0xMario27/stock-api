@@ -17,7 +17,25 @@ const lastUpdate = ref<string>("");
 
 const CARD_MIN_W = 240;
 const CARD_MAX_W = 900;
-const cardWidths = reactive<Record<string, number>>({});
+const CARD_WIDTHS_KEY = "stock-api-py:card-widths";
+
+function loadCardWidths(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(CARD_WIDTHS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function saveCardWidths(): void {
+  try {
+    localStorage.setItem(CARD_WIDTHS_KEY, JSON.stringify(cardWidths));
+  } catch {
+    // ignore
+  }
+}
+
+const cardWidths = reactive<Record<string, number>>(loadCardWidths());
 
 interface DashCard {
   key: string;
@@ -79,7 +97,10 @@ function formatMoney(v: number | null | undefined): string {
   return v.toFixed(2);
 }
 function priceClass(p: number): string { return p > 0 ? "text-up" : p < 0 ? "text-down" : "text-flat"; }
-function viewDetail(code: string, ac: string): void { router.push(`/stock/${code}?asset_class=${ac}`); }
+function viewDetail(code: string, ac: string): void {
+  if (wasResizing) return;
+  router.push(`/stock/${code}?asset_class=${ac}`);
+}
 function removeCard(code: string, ac: string): void {
   const key = `${ac}:${code}`;
   const chart = chartInstances.get(key);
@@ -91,6 +112,7 @@ function removeCard(code: string, ac: string): void {
 let resizeCard: string | null = null;
 let resizeStartX = 0;
 let resizeStartW = 0;
+let wasResizing = false;
 
 function startResize(e: MouseEvent, key: string): void {
   resizeCard = key;
@@ -124,8 +146,12 @@ function onResizeEnd(): void {
   if (resizeCard) {
     const chart = chartInstances.get(resizeCard);
     if (chart) setTimeout(() => chart.resize(), 0);
+    saveCardWidths();
     resizeCard = null;
   }
+  // 标记刚结束 resize，阻止后续 click 事件
+  wasResizing = true;
+  setTimeout(() => { wasResizing = false; }, 100);
 }
 
 // === 拖拽排序 ===
