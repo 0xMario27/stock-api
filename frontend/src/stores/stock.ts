@@ -11,12 +11,14 @@ const SOURCE_CRYPTO_KEY = "stock-api-py:source:crypto";
 const ASSET_CLASS_KEY = "stock-api-py:asset_class";
 const DASH_KEY = "stock-api-py:dashitems";
 
-const DEFAULT_STOCK_WATCHLIST = ["SH510500", "SZ000651", "SH600519"];
+const DEFAULT_STOCK_WATCHLIST = ["SH510500", "SZ000651", "SH600519", "USIXIC", "COMNQ"];
 const DEFAULT_CRYPTO_WATCHLIST = ["bitcoin", "ethereum", "solana"];
 const DEFAULT_DASH: DashItem[] = [
   { code: "SH510500", assetClass: "stock" },
   { code: "SZ000651", assetClass: "stock" },
   { code: "SH600519", assetClass: "stock" },
+  { code: "USIXIC", assetClass: "stock" },
+  { code: "COMNQ", assetClass: "stock" },
   { code: "bitcoin", assetClass: "crypto" },
 ];
 
