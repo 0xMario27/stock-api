@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
     >
       <template #item="{ element, index }">
         <div class="dash-card ui-card"
-          :style="cardWidths[`${element.assetClass}:${element.code}`] ? { width: cardWidths[`${element.assetClass}:${element.code}`] + 'px', flexShrink: 0 } : {}"
+          :style="cardWidths[`${element.assetClass}:${element.code}`] ? { width: cardWidths[`${element.assetClass}:${element.code}`] + 'px', flexGrow: 0, flexShrink: 0, flexBasis: 'auto' } : {}"
           @click="viewDetail(element.code, element.assetClass)">
           <!-- 卡片头部 -->
           <div class="card-top">
